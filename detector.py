@@ -11,7 +11,7 @@ yolo = YOLO("models/yolo11n.pt")
 
 classifier = models.resnet18(weights=None)
 classifier.fc = torch.nn.Linear(classifier.fc.in_features, 2)
-classifier.load_state_dict(torch.load("image_classifier.pth", map_location="cpu"))
+classifier.load_state_dict(torch.load("models/image_classifier.pth", map_location="cpu"))
 classifier.eval()
 
 to_tensor = transforms.Compose([
