@@ -7,7 +7,7 @@ def main():
 
     # Full sensor resolution for Camera Module 3 Wide
     config = picam2.create_preview_configuration(
-        main={"size": (1920, 1080)},
+        main={"size": (1080, 1920)},
     )
     picam2.configure(config)
     picam2.start()
