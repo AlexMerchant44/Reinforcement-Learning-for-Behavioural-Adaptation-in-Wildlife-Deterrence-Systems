@@ -8,9 +8,9 @@ def main():
 
     config = picam2.create_preview_configuration(
         main={"size": (4608, 2592)},
-        transform=Transform(rotation=90)
     )
     picam2.configure(config)
+    picam2.set_controls({"Rotation": 90})
     picam2.start()
 
     print("Press 'q' to quit")
