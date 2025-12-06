@@ -6,7 +6,10 @@ import time
 def main():
     picam2 = Picamera2()
 
-    config = picam2.create_preview_configuration()
+    config = picam2.create_preview_configuration(
+        main={"size": (4608, 2592)},
+        transform=Transform(rotation=90)
+    )
     picam2.configure(config)
     picam2.start()
 
