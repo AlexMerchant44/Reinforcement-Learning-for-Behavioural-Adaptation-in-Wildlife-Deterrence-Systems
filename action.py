@@ -7,7 +7,7 @@ import time
 import RPi.GPIO as GPIO
 
 
-class MotorActionPWM:
+class MotorAction:
     def __init__(self, gpio_pin=4, frequency=1000):
         """
         gpio_pin: BCM pin used for PWM output (Gate of MOSFET)
@@ -59,12 +59,3 @@ class MotorActionPWM:
         """Call at program exit to release GPIO"""
         self.stop()
         GPIO.cleanup(self.gpio_pin)
-
-
-if __name__ == "__main__":
-    # Example manual test
-    m = MotorActionPWM(gpio_pin=18)
-    try:
-        m.run(1.5, duty_cycle=60)  # 60% speed for 1.5s
-    finally:
-        m.cleanup()
