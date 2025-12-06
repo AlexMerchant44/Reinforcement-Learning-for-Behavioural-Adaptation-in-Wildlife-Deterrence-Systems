@@ -1,57 +1,70 @@
+# action.py
 """
-Motor control helper for Raspberry Pi.
-
-Usage:
-    from action import MotorAction
-
-    motor = MotorAction(gpio_pin=18)  # BCM number
-    motor.run(0.5)  # run motor for 0.5 seconds
+PWM Motor Control for Raspberry Pi using a MOSFET.
 """
 
 import time
 import RPi.GPIO as GPIO
 
 
-class MotorAction:
-    def __init__(self, gpio_pin: int = 18, active_high: bool = True):
+class MotorActionPWM:
+    def __init__(self, gpio_pin=4, frequency=1000):
         """
-        gpio_pin: BCM pin number used to control motor driver input.
-        active_high: True if motor should run when pin is HIGH.
-                     Set to False if your driver is active-low.
+        gpio_pin: BCM pin used for PWM output (Gate of MOSFET)
+        frequency: PWM frequency in Hz (1kHz is good for motors)
         """
         self.gpio_pin = gpio_pin
-        self.active_high = active_high
+        self.frequency = frequency
 
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.gpio_pin, GPIO.OUT, initial=GPIO.LOW if active_high else GPIO.HIGH)
+        GPIO.setup(self.gpio_pin, GPIO.OUT)
 
-    def run(self, duration_s: float):
+        # Create PWM instance but do not start it yet
+        self.pwm = GPIO.PWM(self.gpio_pin, self.frequency)
+        self.current_speed = 0  # duty cycle %
+
+    def set_speed(self, duty_cycle: float):
         """
-        Run the motor for duration_s seconds.
-        Non-blocking beyond time.sleep, so call from your main loop.
+        Sets motor speed (0–100%)
+        """
+        duty_cycle = max(0, min(100, duty_cycle))  # clamp to valid range
+
+        if duty_cycle == 0:
+            self.pwm.stop()
+        else:
+            try:
+                self.pwm.start(duty_cycle)
+            except RuntimeError:
+                # Already started → change duty cycle
+                self.pwm.ChangeDutyCycle(duty_cycle)
+
+        self.current_speed = duty_cycle
+
+    def run(self, duration_s: float, duty_cycle: float = 100):
+        """
+        Run the motor for duration_s seconds at given duty cycle (0–100%)
         """
         if duration_s <= 0:
             return
 
-        # turn motor ON
-        GPIO.output(self.gpio_pin, GPIO.HIGH if self.active_high else GPIO.LOW)
+        self.set_speed(duty_cycle)   # turn motor on
         time.sleep(duration_s)
-        # turn motor OFF
-        GPIO.output(self.gpio_pin, GPIO.LOW if self.active_high else GPIO.HIGH)
+        self.set_speed(0)            # stop motor
 
     def stop(self):
-        """Force motor OFF."""
-        GPIO.output(self.gpio_pin, GPIO.LOW if self.active_high else GPIO.HIGH)
+        """Emergency stop (motor off instantly)"""
+        self.set_speed(0)
 
     def cleanup(self):
-        """Call once at program exit if this is the only thing using GPIO."""
+        """Call at program exit to release GPIO"""
+        self.stop()
         GPIO.cleanup(self.gpio_pin)
 
 
 if __name__ == "__main__":
-    # quick manual test: run motor for 0.5s
-    m = MotorAction(gpio_pin=18)
+    # Example manual test
+    m = MotorActionPWM(gpio_pin=18)
     try:
-        m.run(0.5)
+        m.run(1.5, duty_cycle=60)  # 60% speed for 1.5s
     finally:
         m.cleanup()
