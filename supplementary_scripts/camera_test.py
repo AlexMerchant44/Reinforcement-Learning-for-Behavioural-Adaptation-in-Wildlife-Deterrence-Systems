@@ -1,33 +1,32 @@
-# testcamera.py
+# camera_test_fullwide.py
 import cv2
 from picamera2 import Picamera2
-import time
 
 def main():
     picam2 = Picamera2()
 
+    # Full sensor resolution for Camera Module 3 Wide
     config = picam2.create_preview_configuration(
         main={"size": (4608, 2592)},
     )
     picam2.configure(config)
-    picam2.set_controls({"Rotation": 90})
     picam2.start()
 
-    print("Press 'q' to quit")
+    print("Camera started at 4608x2592. Press 'q' to quit.")
+    cv2.namedWindow("Cam3 Wide – full FOV", cv2.WINDOW_NORMAL)
 
     while True:
         frame = picam2.capture_array()
 
-        # Convert RGB→BGR for OpenCV
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # Convert RGB → BGR
+        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-        # Rotate 90° clockwise
-        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        # Rotate manually since libcamera rotation is unavailable
+        rotated = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
+        # If wrong direction, use ROTATE_90_COUNTERCLOCKWISE instead
 
-        # Show in **one** window called "Camera"
-        cv2.imshow("Camera", frame)
+        cv2.imshow("Cam3 Wide – full FOV", rotated)
 
-        # break when 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
