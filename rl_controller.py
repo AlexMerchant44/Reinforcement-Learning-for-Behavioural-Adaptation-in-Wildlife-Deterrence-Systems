@@ -40,9 +40,9 @@ motor = MotorAction(gpio_pin=4)
 
 ACTIONS = [
     lambda: motor.run(0),                # 0 seconds = motor off
-    lambda: motor.run(0.1, 50),          # duration=0.1s, duty=50%
-    lambda: motor.run(0.1, 100),         # duration=0.1s, duty=100%
-    lambda: motor.run(1, 50),            # duration=1s, duty=50%
+    lambda: motor.run(0.1, 0.5),          # duration=0.1s, duty=50%
+    lambda: motor.run(0.1, 1),         # duration=0.1s, duty=100%
+    lambda: motor.run(1, 0.5),            # duration=1s, duty=50%
 ]
 
 ACTION_OBJECTS = [motor]
