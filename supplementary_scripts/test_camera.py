@@ -20,6 +20,6 @@ scale = 0.1   # 50% size
 h, w = frame.shape[:2]
 frame_small = cv2.resize(frame, (int(w*scale), int(h*scale)))
 
-cv2.imshow("Result", frame)
+cv2.imshow("Result", frame_small)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
