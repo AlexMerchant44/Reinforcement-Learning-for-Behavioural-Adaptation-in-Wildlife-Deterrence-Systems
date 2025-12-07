@@ -20,7 +20,7 @@ STATE_TABLE = [
     ("None",   "Scare_None"),
 ]
 
-Epsilon = 1
+Epsilon = 0.3
 Alpha = 0.1
 
 # ---- Load or create Q-table ----
@@ -45,6 +45,7 @@ ACTIONS = [
     lambda: motor.run(1, 0.5),            # duration=1s, duty=50%
 ]
 
+NUM_ACTIONS = len(ACTIONS)
 ACTION_OBJECTS = [motor]
 LEARNING_STATES = {0, 1, 4, 6}    # only these use ε-greedy
 
@@ -60,8 +61,7 @@ def choose_action(state):
     if state not in LEARNING_STATES:
         action_idx = 0
         ACTIONS[action_idx]()          # run A0
-        action_obj = ACTION_OBJECTS[action_idx]
-        return action_idx, action_obj
+        return action_idx, motor
 
     # ε-greedy inside learning states
     if random.random() < Epsilon:
@@ -70,8 +70,7 @@ def choose_action(state):
         action_idx = int(np.argmax(Q[state]))        # greedy action
 
     ACTIONS[action_idx]()                            # run motor
-    action_obj = ACTION_OBJECTS[action_idx]
-    return action_idx, action_obj
+    return action_idx, motor
 
 def get_target_species_from_state(state):
     _, mode = STATE_TABLE[state]
