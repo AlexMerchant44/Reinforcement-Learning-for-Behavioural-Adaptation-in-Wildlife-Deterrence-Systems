@@ -20,7 +20,7 @@ STATE_TABLE = [
     ("None",   "Scare_None"),
 ]
 
-Epsilon = 0.1
+Epsilon = 1
 Alpha = 0.1
 
 # ---- Load or create Q-table ----

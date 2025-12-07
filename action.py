@@ -3,7 +3,7 @@ import RPi.GPIO as GPIO
 
 
 class MotorAction:
-    def __init__(self, gpio_pin=4, frequency=20000):
+    def __init__(self, gpio_pin=4, frequency=8000):
         """
         gpio_pin: BCM pin used for PWM output (Gate of MOSFET)
         frequency: PWM frequency in Hz (1kHz is good for motors)
