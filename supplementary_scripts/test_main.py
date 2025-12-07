@@ -158,6 +158,7 @@ if (species_before != "None") or (species_after != "None"):
         q_table=Q,
     )
     print("Appended to history.csv")
+    print_history_csv()
 
 
 
