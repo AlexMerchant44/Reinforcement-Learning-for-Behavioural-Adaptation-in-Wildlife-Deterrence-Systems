@@ -1,6 +1,5 @@
 from datetime import datetime, time
 import time as pytime
-import camera
 import detector
 import os
 import csv
@@ -11,6 +10,8 @@ from rl_controller import STATE_TABLE, LEARNING_STATES, choose_action, update_q,
 DATA_DIR = os.path.dirname(Q_PATH) or "rl_data"
 EPISODE_DIR = os.path.join(DATA_DIR, "Episodes")
 HISTORY_PATH = os.path.join(DATA_DIR, "history.csv")
+BEFORE_IMG = "dataset_examples/Raw/Crow01.JPG"  
+AFTER_IMG  = "dataset_examples/Raw/Crow02.JPG"  
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(EPISODE_DIR, exist_ok=True)
@@ -101,37 +102,52 @@ def save_episode_images(dt, frame_before, frame_after):
 
     return before_path, after_path
 
+def print_history_csv():
+    """Print contents of rl_data/history.csv nicely formatted."""
+    if not os.path.exists(HISTORY_PATH):
+        print("\nNo history.csv found (no previous episodes logged).")
+        return
 
-while is_now_between(start_time, end_time):
-    frame_before = camera.get_frame()
-    species_before, image = detector.detect_and_classify(frame_before)
-    species_before = normalise_species(species_before)
-    state_before = get_state(species_before)
-    action_idx, motor = choose_action(state_before)
-    if state_before not in LEARNING_STATES:
-        pytime.sleep(1)
-        continue
-    pytime.sleep(5)
-    frame_after = camera.get_frame()
-    species_after, image2 = detector.detect_and_classify(frame_after)
-    species_after = normalise_species(species_after)
-    state_after = get_state(species_after)
-    reward = update_q(state_before, state_after, action_idx)
-    if (species_before != "None") or (species_after != "None"):
-        dt = datetime.now()
-        before_path, after_path = save_episode_images(dt, frame_before, frame_after)
+    print("\n======= HISTORY.CSV CONTENTS =======")
 
-        append_history_row(
-            dt=dt,
-            species_before=species_before,
-            species_after=species_after,
-            state_before=state_before,
-            state_after=state_after,
-            action_idx=action_idx,
-            reward=reward,
-            q_table=Q,
-        )
-        print("Appended to history.csv")
+    with open(HISTORY_PATH, newline="") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            print(row)
+
+    print("===================================\n")
+
+
+
+frame_before = cv2.imread(BEFORE_IMG)
+species_before, image = detector.detect_and_classify(frame_before)
+species_before = normalise_species(species_before)
+state_before = get_state(species_before)
+action_idx, motor = choose_action(state_before)
+if state_before not in LEARNING_STATES:
+    pytime.sleep(1)
+    continue
+pytime.sleep(5)
+frame_after  = cv2.imread(AFTER_IMG)
+species_after, image2 = detector.detect_and_classify(frame_after)
+species_after = normalise_species(species_after)
+state_after = get_state(species_after)
+reward = update_q(state_before, state_after, action_idx)
+if (species_before != "None") or (species_after != "None"):
+    dt = datetime.now()
+    before_path, after_path = save_episode_images(dt, frame_before, frame_after)
+
+    append_history_row(
+        dt=dt,
+        species_before=species_before,
+        species_after=species_after,
+        state_before=state_before,
+        state_after=state_after,
+        action_idx=action_idx,
+        reward=reward,
+        q_table=Q,
+    )
+    print("Appended to history.csv")
 
 
 
