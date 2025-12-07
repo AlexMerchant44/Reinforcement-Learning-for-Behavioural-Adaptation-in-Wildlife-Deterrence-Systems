@@ -26,7 +26,10 @@ Alpha = 0.1
 NUM_STATES = 12     
 NUM_ACTIONS = 4      
 
-Q_PATH = "q_table.npy"
+DATA_DIR = "rl_data"
+os.makedirs(DATA_DIR, exist_ok=True)
+
+Q_PATH = os.path.join(DATA_DIR, "q_table.npy")
 
 if os.path.exists(Q_PATH):
     Q = np.load(Q_PATH)
