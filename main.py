@@ -37,7 +37,7 @@ def normalise_species(species):
     
 def get_state(species):
     species = normalise_species(species)
-    mode = mode_store.get_mode(species)
+    mode = mode_store.get_mode()
     return STATE_LOOKUP[(species, mode)]
     
 def append_history_row(
