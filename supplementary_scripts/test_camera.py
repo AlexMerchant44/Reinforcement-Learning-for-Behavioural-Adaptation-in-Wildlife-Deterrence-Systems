@@ -16,6 +16,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import camera
 
 frame = camera.get_frame()
+scale = 0.1   # 50% size
+h, w = frame.shape[:2]
+frame_small = cv2.resize(frame, (int(w*scale), int(h*scale)))
 
 cv2.imshow("Result", frame)
 cv2.waitKey(0)
