@@ -40,17 +40,17 @@ else:
 
 ACTION_PARAMS = [
     (0.0, 0.0),   # a0: no movement
-    (0.1, 0.5),   # a1
-    (0.1, 1.0),   # a2
+    (0.3, 0.5),   # a1
+    (0.3, 1.0),   # a2
     (1.0, 0.5),   # a3
 ]
 
 motor = MotorAction(gpio_pin=4)
 
 ACTIONS = [
-    lambda: motor.run(0.0,   0),     # 0 seconds, 0% (effectively off)
-    lambda: motor.run(0.1,  50),     # use 50% duty in code (0.5 for energy model)
-    lambda: motor.run(0.1, 100),     # 100%
+    lambda: motor.run(0.0,   0),     # 0 seconds, 0%
+    lambda: motor.run(0.3,  50),     # use 50% duty in code (0.5 for energy model)
+    lambda: motor.run(0.3, 100),     # 100%
     lambda: motor.run(1.0,  50),     # 1s at 50%
 ]
 

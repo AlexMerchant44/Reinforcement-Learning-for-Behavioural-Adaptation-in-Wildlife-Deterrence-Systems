@@ -10,6 +10,9 @@ CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+CURRENT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = CURRENT_DIR.parent
+
 import mode_store
 import detector
 from rl_controller import STATE_TABLE, LEARNING_STATES, choose_action, update_q, Q, Q_PATH
@@ -17,8 +20,8 @@ from rl_controller import STATE_TABLE, LEARNING_STATES, choose_action, update_q,
 DATA_DIR = os.path.dirname(Q_PATH) or "rl_data"
 EPISODE_DIR = os.path.join(DATA_DIR, "Episodes")
 HISTORY_PATH = os.path.join(DATA_DIR, "history.csv")
-BEFORE_IMG = "dataset_examples/Raw/Crow01.JPG"  
-AFTER_IMG  = "dataset_examples/Raw/Crow02.JPG"  
+BEFORE_IMG = PROJECT_ROOT / "dataset_examples/Raw/Crow01.JPG"  
+AFTER_IMG  = PROJECT_ROOT / "dataset_examples/Raw/Crow02.JPG"  
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(EPISODE_DIR, exist_ok=True)
