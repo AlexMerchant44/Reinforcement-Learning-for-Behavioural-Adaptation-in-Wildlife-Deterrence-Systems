@@ -36,19 +36,16 @@ else:
     np.save(Q_PATH, Q)
 
 # ---- Define actions ----
-A0 = MotorAction()
-A1 = MotorAction()
-A2 = MotorAction()
-A3 = MotorAction()
+motor = MotorAction(gpio_pin=4)
 
 ACTIONS = [
-    lambda: A0.run(0),                # 0 seconds = motor off
-    lambda: A1.run(0.1, 50),          # duration=0.1s, duty=50%
-    lambda: A2.run(0.1, 100),         # duration=0.1s, duty=100%
-    lambda: A3.run(1, 50),            # duration=1s, duty=50%
+    lambda: motor.run(0),                # 0 seconds = motor off
+    lambda: motor.run(0.1, 50),          # duration=0.1s, duty=50%
+    lambda: motor.run(0.1, 100),         # duration=0.1s, duty=100%
+    lambda: motor.run(1, 50),            # duration=1s, duty=50%
 ]
 
-ACTION_OBJECTS = [A0, A1, A2, A3]
+ACTION_OBJECTS = [motor]
 LEARNING_STATES = {0, 1, 4, 6}    # only these use ε-greedy
 
 
