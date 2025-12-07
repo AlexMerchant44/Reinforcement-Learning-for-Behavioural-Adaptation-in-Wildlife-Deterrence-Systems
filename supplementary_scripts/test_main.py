@@ -126,7 +126,7 @@ state_before = get_state(species_before)
 action_idx, motor = choose_action(state_before)
 if state_before not in LEARNING_STATES:
     pytime.sleep(1)
-    continue
+    print('not in learning state')
 pytime.sleep(5)
 frame_after  = cv2.imread(AFTER_IMG)
 species_after, image2 = detector.detect_and_classify(frame_after)
