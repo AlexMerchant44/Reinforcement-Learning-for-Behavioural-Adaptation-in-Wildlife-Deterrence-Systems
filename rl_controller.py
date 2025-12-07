@@ -36,19 +36,25 @@ else:
     np.save(Q_PATH, Q)
 
 # ---- Define actions ----
-A0 = MotorAction(0)
-A1 = MotorAction(0.1, duty_cycle=50)
-A2 = MotorAction(0.1, duty_cycle=100)
-A3 = MotorAction(1, duty_cycle=50)
+A0 = MotorAction()
+A1 = MotorAction()
+A2 = MotorAction()
+A3 = MotorAction()
 
-ACTIONS = [A0, A1, A2, A3]
+ACTIONS = [
+    lambda: A0.run(0),                # 0 seconds = motor off
+    lambda: A1.run(0.1, 50),          # duration=0.1s, duty=50%
+    lambda: A2.run(0.1, 100),         # duration=0.1s, duty=100%
+    lambda: A3.run(1, 50),            # duration=1s, duty=50%
+]
 
+ACTION_OBJECTS = [A0, A1, A2, A3]
 LEARNING_STATES = {0, 1, 4, 6}    # only these use ε-greedy
 
 
 def choose_action(state):
     """
-    Returns chosen action index and action object.
+    Returns (action_idx, action_obj).
     Applies epsilon-greedy ONLY for states 0, 1, 4, 6.
     All other states always do A0.
     """
@@ -56,19 +62,19 @@ def choose_action(state):
     # non-learning states → always A0
     if state not in LEARNING_STATES:
         action_idx = 0
-        action = A0
-        action.run()
-        return action_idx, action
+        ACTIONS[action_idx]()          # run A0
+        action_obj = ACTION_OBJECTS[action_idx]
+        return action_idx, action_obj
 
     # ε-greedy inside learning states
     if random.random() < Epsilon:
-        action_idx = random.randrange(NUM_ACTIONS)
+        action_idx = random.randrange(NUM_ACTIONS)   # random action
     else:
-        action_idx = int(np.argmax(Q[state]))
+        action_idx = int(np.argmax(Q[state]))        # greedy action
 
-    action = ACTIONS[action_idx]
-    action.run()
-    return action_idx, action
+    ACTIONS[action_idx]()                            # run motor
+    action_obj = ACTION_OBJECTS[action_idx]
+    return action_idx, action_obj
 
 def get_target_species_from_state(state):
     _, mode = STATE_TABLE[state]
@@ -92,9 +98,6 @@ def compute_reward(state_before, state_after, action_idx):
 
     actions = [[0,0], [0.1,0.5], [0.1, 1], [1, 0.5]]
 
-    """
-    Returns reward given the before/after state and energy cost.
-    """
     species_before = get_species_from_state(state_before)
     species_after  = get_species_from_state(state_after)
 
