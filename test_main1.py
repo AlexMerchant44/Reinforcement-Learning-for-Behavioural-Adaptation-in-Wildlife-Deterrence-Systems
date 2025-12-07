@@ -1,0 +1,158 @@
+from datetime import datetime, time
+import time as pytime
+import camera
+import detector
+import os
+import csv
+import cv2
+import mode_store
+from rl_controller import STATE_TABLE, LEARNING_STATES, choose_action, update_q, Q, Q_PATH
+
+DATA_DIR = os.path.dirname(Q_PATH) or "rl_data"
+EPISODE_DIR = os.path.join(DATA_DIR, "Episodes")
+HISTORY_PATH = os.path.join(DATA_DIR, "history.csv")
+BEFORE_IMG = "dataset_examples/Raw/Crow01.JPG"  
+AFTER_IMG  = "dataset_examples/Raw/Crow02.JPG"  
+
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(EPISODE_DIR, exist_ok=True)
+
+start_time = time(7, 0)  # 7:00
+end_time = time(16, 0)     # 14:00
+
+STATE_LOOKUP = { (s, m): i for i, (s, m) in enumerate(STATE_TABLE) }
+
+def is_now_between(start: time, end: time) -> bool:
+    now = datetime.now().time()
+
+    if start <= end:
+        return start <= now <= end
+    else:
+        return now >= start or now <= end
+    
+def normalise_species(species):
+    """
+    detector returns: 'Crow', 'Magpie', or None
+    STATE_TABLE expects: 'Crow', 'Magpie', 'None'
+    """
+    return species if species is not None else "None"
+    
+def get_state(species):
+    species = normalise_species(species)
+    mode = mode_store.get_mode()
+    return STATE_LOOKUP[(species, mode)]
+    
+def append_history_row(
+    dt,
+    species_before,
+    species_after,
+    state_before,
+    state_after,
+    action_idx,
+    reward,
+    q_table,
+):
+    """
+    Append one line to history.csv with:
+      datetime, species_before, species_after,
+      state_before, state_after, action_idx, reward,
+      flattened q_table.
+    """
+    header = [
+        "datetime",
+        "species_before",
+        "species_after",
+        "state_before",
+        "state_after",
+        "action_idx",
+        "reward",
+        "q_flattened",
+    ]
+    
+    q_flat = " ".join(f"{v:.6f}" for v in q_table.flatten())
+
+    write_header = not os.path.exists(HISTORY_PATH)
+
+    with open(HISTORY_PATH, mode="a", newline="") as f:
+        writer = csv.writer(f)
+        if write_header:
+            writer.writerow(header)
+
+        writer.writerow([
+            dt.isoformat(),
+            species_before,
+            species_after,
+            state_before,
+            state_after,
+            action_idx,
+            f"{reward:.6f}",
+            q_flat,
+        ])
+
+
+def save_episode_images(dt, frame_before, frame_after):
+    """
+    Save before/after frames into Episodes folder with timestamp-based names.
+    """
+    ts = dt.strftime("%Y%m%d_%H%M%S")
+    before_path = os.path.join(EPISODE_DIR, f"{ts}_before.jpg")
+    after_path  = os.path.join(EPISODE_DIR, f"{ts}_after.jpg")
+
+    cv2.imwrite(before_path, frame_before)
+    cv2.imwrite(after_path, frame_after)
+
+    return before_path, after_path
+
+def print_history_csv():
+    """Print contents of rl_data/history.csv nicely formatted."""
+    if not os.path.exists(HISTORY_PATH):
+        print("\nNo history.csv found (no previous episodes logged).")
+        return
+
+    print("\n======= HISTORY.CSV CONTENTS =======")
+
+    with open(HISTORY_PATH, newline="") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            print(row)
+
+    print("===================================\n")
+
+
+frame_before = cv2.imread(BEFORE_IMG)
+species_before, image = detector.detect_and_classify(frame_before)
+species_before = normalise_species(species_before)
+state_before = get_state(species_before)
+action_idx, motor = choose_action(state_before)
+if state_before not in LEARNING_STATES:
+    pytime.sleep(1)
+    print('not in learning state')
+pytime.sleep(5)
+frame_after  = cv2.imread(AFTER_IMG)
+species_after, image2 = detector.detect_and_classify(frame_after)
+species_after = normalise_species(species_after)
+state_after = get_state(species_after)
+reward = update_q(state_before, state_after, action_idx)
+if (species_before != "None") or (species_after != "None"):
+    dt = datetime.now()
+    before_path, after_path = save_episode_images(dt, frame_before, frame_after)
+
+    append_history_row(
+        dt=dt,
+        species_before=species_before,
+        species_after=species_after,
+        state_before=state_before,
+        state_after=state_after,
+        action_idx=action_idx,
+        reward=reward,
+        q_table=Q,
+    )
+    print("Appended to history.csv")
+    print_history_csv()
+
+
+
+
+
+
+
