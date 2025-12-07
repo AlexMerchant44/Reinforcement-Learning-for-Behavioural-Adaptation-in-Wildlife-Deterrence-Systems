@@ -13,3 +13,4 @@ def set_mode(mode: str):
     if mode not in ALLOWED:
         raise ValueError("Invalid mode")
     MODE_FILE.write_text(mode)
+

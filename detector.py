@@ -26,31 +26,44 @@ to_tensor = transforms.Compose([
 def detect_and_classify(frame_bgr):
     """
     Returns:
-      detected (bool),
       species (str: 'Crow'/'Magpie'/None),
-      frame_with_box (BGR)
+      frame_with_boxes (BGR)
     """
     results = yolo(frame_bgr, verbose=False)
     r = results[0]
 
     if not r.boxes or len(r.boxes) == 0:
-        return False, None, frame_bgr
+        return None, frame_bgr
 
-    # pick highest-conf box
-    best_box = max(r.boxes, key=lambda b: float(b.conf[0]))
-    x1, y1, x2, y2 = map(int, best_box.xyxy[0].tolist())
+    detected_species = set()   # keep unique species seen
 
-    crop = frame_bgr[y1:y2, x1:x2]
-    crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-    pil = Image.fromarray(crop_rgb)
-    x = to_tensor(pil).unsqueeze(0)
+    for box in r.boxes:
+        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
 
-    with torch.no_grad():
-        out = classifier(x)
-        cls_idx = torch.argmax(out, dim=1).item()
-        species = CLASS_NAMES[cls_idx]
+        # crop to classify
+        crop = frame_bgr[y1:y2, x1:x2]
+        crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+        pil = Image.fromarray(crop_rgb)
+        x = to_tensor(pil).unsqueeze(0)
 
-    # draw box for debug
-    cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # classify crop
+        with torch.no_grad():
+            out = classifier(x)
+            cls_idx = torch.argmax(out, dim=1).item()
+            species = CLASS_NAMES[cls_idx]
 
-    return True, species, frame_bgr
+        detected_species.add(species)
+
+        # draw box + label
+        cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0,255,0), 2)
+        cv2.putText(frame_bgr, species, (x1, y1-5),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+
+    # --- Apply priority rules ---
+    if "Crow" in detected_species:
+        return "Crow", frame_bgr
+
+    if "Magpie" in detected_species:
+        return "Magpie", frame_bgr
+
+    return None, frame_bgr
