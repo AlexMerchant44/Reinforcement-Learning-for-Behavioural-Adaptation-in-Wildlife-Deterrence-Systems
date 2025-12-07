@@ -1,10 +1,17 @@
 from datetime import datetime, time
 import time as pytime
-import detector
 import os
 import csv
 import cv2
+from pathlib import Path
+import sys
+
+CURRENT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = CURRENT_DIR.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 import mode_store
+import detector
 from rl_controller import STATE_TABLE, LEARNING_STATES, choose_action, update_q, Q, Q_PATH
 
 DATA_DIR = os.path.dirname(Q_PATH) or "rl_data"
