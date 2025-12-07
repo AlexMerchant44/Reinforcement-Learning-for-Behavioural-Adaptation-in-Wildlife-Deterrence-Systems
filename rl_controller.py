@@ -23,11 +23,10 @@ STATE_TABLE = [
 Epsilon = 0.3
 Alpha = 0.1
 
-# ---- Load or create Q-table ----
-Q_PATH = "q_table.npy"
+NUM_STATES = 12     
+NUM_ACTIONS = 4      
 
-NUM_STATES = 12      # states 0..11
-NUM_ACTIONS = 4
+Q_PATH = "q_table.npy"
 
 if os.path.exists(Q_PATH):
     Q = np.load(Q_PATH)
@@ -35,39 +34,41 @@ else:
     Q = np.zeros((NUM_STATES, NUM_ACTIONS), dtype=float)
     np.save(Q_PATH, Q)
 
-# ---- Define actions ----
+
+ACTION_PARAMS = [
+    (0.0, 0.0),   # a0: no movement
+    (0.1, 0.5),   # a1
+    (0.1, 1.0),   # a2
+    (1.0, 0.5),   # a3
+]
+
 motor = MotorAction(gpio_pin=4)
 
 ACTIONS = [
-    lambda: motor.run(0),                # 0 seconds = motor off
-    lambda: motor.run(0.1, 50),          # duration=0.1s, duty=50%
-    lambda: motor.run(0.1, 100),         # duration=0.1s, duty=100%
-    lambda: motor.run(1, 50),            # duration=1s, duty=50%
+    lambda: motor.run(0.0,   0),     # 0 seconds, 0% (effectively off)
+    lambda: motor.run(0.1,  50),     # use 50% duty in code (0.5 for energy model)
+    lambda: motor.run(0.1, 100),     # 100%
+    lambda: motor.run(1.0,  50),     # 1s at 50%
 ]
 
 NUM_ACTIONS = len(ACTIONS)
 ACTION_OBJECTS = [motor]
-LEARNING_STATES = {0, 1, 4, 6}    # only these use ε-greedy
+
+LEARNING_STATES = {0, 1, 4, 6} 
 
 
 def choose_action(state):
-    """
-    Returns (action_idx, action_obj).
-    Applies epsilon-greedy ONLY for states 0, 1, 4, 6.
-    All other states always do A0.
-    """
-
-    # non-learning states → always A0
+    
     if state not in LEARNING_STATES:
         action_idx = 0
-        ACTIONS[action_idx]()          # run A0
+        ACTIONS[action_idx]()     
         return action_idx, motor
 
     # ε-greedy inside learning states
     if random.random() < Epsilon:
-        action_idx = random.randrange(NUM_ACTIONS)   # random action
+        action_idx = random.randrange(NUM_ACTIONS)   # explore
     else:
-        action_idx = int(np.argmax(Q[state]))        # greedy action
+        action_idx = int(np.argmax(Q[state]))        # exploit
 
     ACTIONS[action_idx]()                            # run motor
     return action_idx, motor
@@ -83,6 +84,7 @@ def get_target_species_from_state(state):
         return {"Crow", "Magpie"}
     return set()   # Scare_None
 
+
 def get_species_from_state(state):
     if state in (0, 1, 2, 3):
         return "Crow"
@@ -91,70 +93,64 @@ def get_species_from_state(state):
     return None
 
 def compute_reward(state_before, state_after, action_idx):
-
-    actions = [[0,0], [0.1,0.5], [0.1, 1], [1, 0.5]]
-
+    """
+    Reward:
+      +1 if target bird deterred
+      -1 if target bird not deterred
+      -1 if wrong bird deterred
+      +1 if wrong bird not deterred
+    Minus an energy cost term based on action_idx.
+    """
     species_before = get_species_from_state(state_before)
     species_after  = get_species_from_state(state_after)
-
     target_species = get_target_species_from_state(state_before)
 
-    reward = 0
+    reward = 0.0
 
     # --- Case: a bird was present before ---
     if species_before is not None:
 
-        # Was the bird deterred? (disappeared)
+        # Was the bird deterred? (disappeared → state_after has species None)
         deterred = (species_after is None)
 
         if species_before in target_species:
             # target bird (correct animal)
             if deterred:
-                reward += 1      # success
+                reward += 1.0     # success
             else:
-                reward -= 1      # failed to deter
+                reward -= 1.0     # failed to deter
         else:
             # wrong species (non-target bird)
             if deterred:
-                reward -= 1      # punished for scaring wrong bird
+                reward -= 1.0     # punished for scaring wrong bird
             else:
-                reward += 1      # correct behavior (didn't scare wrong species)
+                reward += 1.0     # correct behavior (didn't scare wrong species)
 
-    # --- No bird before ---
-    else:
-        # no reward bonus or penalty; could add noise if desired
-        pass
-
-    # --- Energy cost --- #E = V*PWM*I*t
-    reward -= 9*actions[action_idx][1]*0.25*actions[action_idx[0]]
+    # --- Energy cost ---
+    # E = V * duty_fraction * I_full * duration
+    # Here: V=9V, I_full=0.25A
+    duration_s, duty_frac = ACTION_PARAMS[action_idx]
+    energy_cost = 9.0 * duty_frac * 0.25 * duration_s
+    reward -= energy_cost
 
     return reward
 
 def update_q(state_before, state_after, action_idx):
     """
-    Updates the Q-table stored in q_table.npy using your rule:
+    Updates the Q-table stored in q_table.npy using:
 
-        Q[s][a] = Q[s][a] + alpha * (reward - Q[s][a])
+        Q[s][a] = Q[s][a] + Alpha * (reward - Q[s][a])
 
-    Also writes the updated Q-table back to disk immediately.
+    and writes the updated Q-table back to disk.
     """
     global Q
 
-    # --- 1. Compute reward for this transition ---
     reward = compute_reward(state_before, state_after, action_idx)
 
-    # --- 2. Current Q-value ---
     old_q = Q[state_before, action_idx]
-
-    # --- 3. Apply update rule ---
     new_q = old_q + Alpha * (reward - old_q)
     Q[state_before, action_idx] = new_q
 
-    # --- 4. Save updated Q-table back to q_table.npy ---
     np.save(Q_PATH, Q)
+
     return reward
-
-
-
-
-
