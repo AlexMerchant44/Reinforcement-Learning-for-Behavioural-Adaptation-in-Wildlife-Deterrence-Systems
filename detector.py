@@ -3,15 +3,20 @@ import torch
 from torchvision import transforms, models
 from PIL import Image
 import cv2
+from pathlib import Path
 
 CLASS_NAMES = ["Crow", "Magpie"]
 
+HERE = Path(__file__).resolve().parent
+MODEL_PATH = HERE / "models" / "image_classifier.pth"
+YOLO_PATH = HERE / "models" / "yolo11n.pt"
+
 # load YOLO and classifier once
-yolo = YOLO("models/yolo11n.pt")
+yolo = YOLO(YOLO_PATH)
 
 classifier = models.resnet18(weights=None)
 classifier.fc = torch.nn.Linear(classifier.fc.in_features, 2)
-classifier.load_state_dict(torch.load("models/image_classifier.pth", map_location="cpu"))
+classifier.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
 classifier.eval()
 
 to_tensor = transforms.Compose([
