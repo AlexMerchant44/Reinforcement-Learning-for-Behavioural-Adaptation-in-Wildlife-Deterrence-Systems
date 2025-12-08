@@ -148,7 +148,7 @@ while is_now_between(start_time, end_time):
     # Stop recording only if we started it
     if recording_started:
         try:
-            camera.stop_recording()
+            camera.stop_recording(video_path)
         except Exception as e:
             print(f"[Camera] stop_recording error: {e}")
 
