@@ -4,7 +4,7 @@ from picamera2.outputs import FileOutput
 import cv2
 
 picam2 = None
-current_encoder = None  # keep a reference so it isn't garbage-collected
+current_encoder = None
 
 
 def init_camera():
@@ -14,7 +14,7 @@ def init_camera():
     # Use a video configuration and add a lores stream for detection
     config = picam2.create_video_configuration(
         main={"size": (1080, 1920)},   # used for recording
-        lores={"size": (720, 1280)},    # used for detection frames
+        lores={"size": (1080, 1920)},    # used for detection frames
         display="main",
     )
     picam2.configure(config)
