@@ -18,7 +18,9 @@ def init_camera():
 init_camera()
 
 def get_frame():
-    """Return a BGR frame (numpy array) from the camera."""
+    """
+    Return a BGR frame (numpy array) from the camera.
+    """
     frame = picam2.capture_array()
     # Picamera2 gives RGB; OpenCV uses BGR
     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
@@ -26,6 +28,9 @@ def get_frame():
     return rotated
 
 def start_recording(path):
+    '''
+    Start recording and save to the given path
+    '''
     global picam2
     encoder = H264Encoder(bitrate=10_000_000)  # good quality
     output = FileOutput(path)
@@ -34,6 +39,9 @@ def start_recording(path):
 
 
 def stop_recording():
+    '''
+    Stop recording previously started video
+    '''
     global picam2
     try:
         picam2.stop_recording()

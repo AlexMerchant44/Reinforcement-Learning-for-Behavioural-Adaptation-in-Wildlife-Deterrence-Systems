@@ -15,12 +15,16 @@ HISTORY_PATH = os.path.join(DATA_DIR, "history.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(EPISODE_DIR, exist_ok=True)
 
-start_time = time(0, 30)  # 7:00
-end_time = time(16, 0)     # 14:00
+start_time = time(7, 0)  # 7:00
+end_time = time(12, 0)     # 12:00
 
 STATE_LOOKUP = { (s, m): i for i, (s, m) in enumerate(STATE_TABLE) }
 
 def is_now_between(start: time, end: time) -> bool:
+    ''' 
+    Defines the start and end time for the RL model, no need to be running
+    when there are no birds there.
+    '''
     now = datetime.now().time()
 
     if start <= end:
@@ -36,11 +40,15 @@ def normalise_species(species):
     return species if species is not None else "None"
     
 def get_state(species):
+    '''
+    takes a species, gets the mode from mode.txt and looks up the state
+    '''
     species = normalise_species(species)
     mode = mode_store.get_mode()
     return STATE_LOOKUP[(species, mode)]
     
 def append_history_row(
+    
     dt,
     species_before,
     species_after,
@@ -148,7 +156,7 @@ while is_now_between(start_time, end_time):
     # Stop recording only if we started it
     if recording_started:
         try:
-            camera.stop_recording(video_path)
+            camera.stop_recording()
         except Exception as e:
             print(f"[Camera] stop_recording error: {e}")
 

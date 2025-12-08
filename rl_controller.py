@@ -20,8 +20,8 @@ STATE_TABLE = [
     ("None",   "Scare_None"),
 ]
 
-Epsilon = 0.3
-Alpha = 0.1
+Epsilon = 0.3 # Exploration rate
+Alpha = 0.1 #Learning rate
 
 NUM_STATES = 12     
 NUM_ACTIONS = 4      
@@ -56,11 +56,14 @@ ACTIONS = [
 
 NUM_ACTIONS = len(ACTIONS)
 ACTION_OBJECTS = [motor]
-
 LEARNING_STATES = {0, 1, 4, 6} 
 
 
 def choose_action(state):
+    '''
+    Determines and carries out an action based on the state
+    4 possible actions ranging from no motor to 1s at 50% PWM
+    '''
     
     if state not in LEARNING_STATES:
         action_idx = 0
@@ -77,6 +80,9 @@ def choose_action(state):
     return action_idx, motor
 
 def get_target_species_from_state(state):
+    '''
+    Helper function to retrieve the target species from a state
+    '''
     _, mode = STATE_TABLE[state]
 
     if mode == "Scare_Crows":
@@ -89,6 +95,9 @@ def get_target_species_from_state(state):
 
 
 def get_species_from_state(state):
+    '''
+    Helper function to retrieve current species from a state
+    '''
     if state in (0, 1, 2, 3):
         return "Crow"
     if state in (4, 5, 6, 7):
@@ -110,18 +119,17 @@ def compute_reward(state_before, state_after, action_idx):
 
     reward = 0.0
 
-    # --- Case: a bird was present before ---
+    # If a bird was present
     if species_before is not None:
 
-        # Was the bird deterred? (disappeared → state_after has species None)
+        # Was the bird deterred?
         deterred = (species_after is None)
 
         if species_before in target_species:
-            # target bird (correct animal)
             if deterred:
-                reward += 1.0     # success
+                reward += 1.0     
             else:
-                reward -= 1.0     # failed to deter
+                reward -= 1.0     
         else:
             # wrong species (non-target bird)
             if deterred:

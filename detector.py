@@ -11,9 +11,8 @@ HERE = Path(__file__).resolve().parent
 MODEL_PATH = HERE / "models" / "image_classifier.pth"
 YOLO_PATH = HERE / "models" / "yolo11n.pt"
 
-# load YOLO and classifier once
+# Load YOLO and classifier
 yolo = YOLO(YOLO_PATH)
-
 classifier = models.resnet18(weights=None)
 classifier.fc = torch.nn.Linear(classifier.fc.in_features, 2)
 classifier.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
@@ -30,6 +29,7 @@ to_tensor = transforms.Compose([
 
 def detect_and_classify(frame_bgr):
     """
+    Runs Yolo11n and classifier on frame_bgr
     Returns:
       species (str: 'Crow'/'Magpie'/None),
       frame_with_boxes (BGR)
