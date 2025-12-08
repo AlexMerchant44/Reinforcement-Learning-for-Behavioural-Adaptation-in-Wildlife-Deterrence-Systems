@@ -120,7 +120,9 @@ while True:
             recording_started = False
 
             # Before frame
+            print("[DEBUG] Top of loop, about to get_frame()", flush=True)
             frame_before = camera.get_frame()
+            print("[DEBUG] Got frame_before", flush=True)
             species_before, image = detector.detect_and_classify(frame_before)
             print(f"Species Detected: {species_before}")
             species_before = normalise_species(species_before)
