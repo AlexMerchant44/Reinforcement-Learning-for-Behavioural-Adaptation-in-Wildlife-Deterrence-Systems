@@ -16,7 +16,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(EPISODE_DIR, exist_ok=True)
 
 start_time = time(7, 0)  # 7:00
-end_time = time(18, 0)     # 18:00
+end_time = time(19, 0)     # 18:00
 
 STATE_LOOKUP = { (s, m): i for i, (s, m) in enumerate(STATE_TABLE) }
 
