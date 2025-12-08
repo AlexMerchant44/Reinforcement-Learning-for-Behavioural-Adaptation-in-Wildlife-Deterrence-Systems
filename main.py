@@ -16,7 +16,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(EPISODE_DIR, exist_ok=True)
 
 start_time = time(7, 0)  # 7:00
-end_time = time(16, 0)     # 12:00
+end_time = time(18, 0)     # 18:00
 
 STATE_LOOKUP = { (s, m): i for i, (s, m) in enumerate(STATE_TABLE) }
 
@@ -120,6 +120,7 @@ while True:
         # Before frame
         frame_before = camera.get_frame()
         species_before, image = detector.detect_and_classify(frame_before)
+        print(f"Species Detected: {species_before}")
         species_before = normalise_species(species_before)
 
         # Start recording as soon as we see a bird in the before frame
@@ -142,7 +143,7 @@ while True:
                     os.remove(video_path)
                     print(f"[Cleanup] Deleted unused video (non-learning state): {video_path}")
 
-            pytime.sleep(1)
+            pytime.sleep(2)
             continue
 
         # Wait for action
@@ -194,8 +195,6 @@ while True:
     else:
         print("Outside active hours. Sleeping 60s.")
         pytime.sleep(60)
-
-    pytime.sleep(1)
 
 
 
