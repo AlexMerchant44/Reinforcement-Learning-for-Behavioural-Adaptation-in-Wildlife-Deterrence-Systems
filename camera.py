@@ -1,5 +1,9 @@
-from picamera2 import Picamera2
+from picamera2 import Picamera2, H264Encoder
+from picamera2.outputs import FileOutput
 import cv2
+import os
+
+picam2 = None
 
 picam2 = None
 
@@ -23,20 +27,15 @@ def get_frame():
     return rotated
 
 def start_recording(path):
-    """
-    Start recording a video to the specified .h264 or .mp4 path.
-    """
-    if not path.endswith(".h264") and not path.endswith(".mp4"):
-        raise ValueError("Video path must end with .h264 or .mp4")
-
-    picam2.start_recording(path)
+    global picam2
+    encoder = H264Encoder(bitrate=10_000_000)  # good quality
+    output = FileOutput(path)
+    picam2.start_recording(encoder, output)
     print(f"[Camera] Started recording → {path}")
 
 
 def stop_recording():
-    """
-    Stop recording the active video.
-    """
+    global picam2
     try:
         picam2.stop_recording()
         print("[Camera] Stopped recording")
