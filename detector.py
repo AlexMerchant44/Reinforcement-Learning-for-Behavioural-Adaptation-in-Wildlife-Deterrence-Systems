@@ -4,12 +4,16 @@ from torchvision import transforms, models
 from PIL import Image
 import cv2
 from pathlib import Path
+import os
+import datetime
 
 CLASS_NAMES = ["Crow", "Magpie"]
 
 HERE = Path(__file__).resolve().parent
 MODEL_PATH = HERE / "models" / "image_classifier.pth"
 YOLO_PATH = HERE / "models" / "yolo11n.pt"
+
+EPISODE_DIR = os.path.join("rl_data", "Episodes")
 
 # Load YOLO and classifier
 yolo = YOLO(YOLO_PATH)
@@ -50,6 +54,12 @@ def detect_and_classify(frame_bgr):
         crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
         pil = Image.fromarray(crop_rgb)
         x = to_tensor(pil).unsqueeze(0)
+
+        # Save if a box was drawn
+        dt = datetime.now()
+        ts = dt.strftime("%Y%m%d_%H%M%S")
+        crop_path  = os.path.join(EPISODE_DIR, f"{ts}_YOLO_detected.jpg")
+        cv2.imwrite(crop_path, crop)
 
         # classify crop
         with torch.no_grad():
