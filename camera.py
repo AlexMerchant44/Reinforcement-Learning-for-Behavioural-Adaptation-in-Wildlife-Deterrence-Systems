@@ -21,3 +21,24 @@ def get_frame():
     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     rotated = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
     return rotated
+
+def start_recording(path):
+    """
+    Start recording a video to the specified .h264 or .mp4 path.
+    """
+    if not path.endswith(".h264") and not path.endswith(".mp4"):
+        raise ValueError("Video path must end with .h264 or .mp4")
+
+    picam2.start_recording(path)
+    print(f"[Camera] Started recording → {path}")
+
+
+def stop_recording():
+    """
+    Stop recording the active video.
+    """
+    try:
+        picam2.stop_recording()
+        print("[Camera] Stopped recording")
+    except Exception as e:
+        print(f"[Camera] stop_recording error: {e}")
