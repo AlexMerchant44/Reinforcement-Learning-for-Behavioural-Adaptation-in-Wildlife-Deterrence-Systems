@@ -4,6 +4,7 @@ import camera
 import detector
 import os
 import csv
+import traceback
 import cv2
 import mode_store
 from rl_controller import STATE_TABLE, LEARNING_STATES, choose_action, update_q, Q, Q_PATH
@@ -109,92 +110,97 @@ def save_episode_images(dt, frame_before, frame_after):
     return before_path, after_path
 
 while True:
-    if is_now_between(start_time, end_time):
+    try:
+        if is_now_between(start_time, end_time):
 
-        # Use one timestamp per episode
-        dt = datetime.now()
-        ts = dt.strftime("%Y%m%d_%H%M%S")
-        video_path = os.path.join(EPISODE_DIR, f"{ts}_episode.h264")
-        recording_started = False
+            # Use one timestamp per episode
+            dt = datetime.now()
+            ts = dt.strftime("%Y%m%d_%H%M%S")
+            video_path = os.path.join(EPISODE_DIR, f"{ts}_episode.h264")
+            recording_started = False
 
-        # Before frame
-        frame_before = camera.get_frame()
-        species_before, image = detector.detect_and_classify(frame_before)
-        print(f"Species Detected: {species_before}")
-        species_before = normalise_species(species_before)
+            # Before frame
+            frame_before = camera.get_frame()
+            species_before, image = detector.detect_and_classify(frame_before)
+            print(f"Species Detected: {species_before}")
+            species_before = normalise_species(species_before)
 
-        # Start recording as soon as we see a bird in the before frame
-        if species_before != "None":
-            camera.start_recording(video_path)
-            recording_started = True
+            # Start recording as soon as we see a bird in the before frame
+            if species_before != "None":
+                camera.start_recording(video_path)
+                recording_started = True
 
-        state_before = get_state(species_before)
-        action_idx, motor = choose_action(state_before)
+            state_before = get_state(species_before)
+            action_idx, motor = choose_action(state_before)
 
-        # If no action is taken, tidy up and continue
-        if state_before not in LEARNING_STATES:
-            # If we did start a recording stop it and delete the temporary clip.
+            # If no action is taken, tidy up and continue
+            if state_before not in LEARNING_STATES:
+                # If we did start a recording stop it and delete the temporary clip.
+                if recording_started:
+                    try:
+                        camera.stop_recording()
+                    except Exception as e:
+                        print(f"[Camera] stop_recording (non-learning state) error: {e}")
+                    if os.path.exists(video_path):
+                        os.remove(video_path)
+                        print(f"[Cleanup] Deleted unused video (non-learning state): {video_path}")
+
+                pytime.sleep(2)
+                continue
+
+            # Wait for action
+            pytime.sleep(5)
+
+            # After frame
+            frame_after = camera.get_frame()
+            species_after, image2 = detector.detect_and_classify(frame_after)
+            species_after = normalise_species(species_after)
+            state_after = get_state(species_after)
+
+            # Stop recording only if we started it
             if recording_started:
                 try:
                     camera.stop_recording()
                 except Exception as e:
-                    print(f"[Camera] stop_recording (non-learning state) error: {e}")
-                if os.path.exists(video_path):
+                    print(f"[Camera] stop_recording error: {e}")
+
+
+            reward = update_q(state_before, state_after, action_idx)
+
+            # Bird event if a bird was present in either before or after
+            bird_event = (species_before != "None") or (species_after != "None")
+
+            if bird_event:
+                before_path, after_path = save_episode_images(dt, frame_before, frame_after)
+
+                append_history_row(
+                    dt=dt,
+                    species_before=species_before,
+                    species_after=species_after,
+                    state_before=state_before,
+                    state_after=state_after,
+                    action_idx=action_idx,
+                    reward=reward,
+                    q_table=Q,
+                )
+                print("Appended to history.csv")
+                if recording_started:
+                    print(f"Episode video kept: {video_path}")
+            else:
+                # No bird in either frame so delete the temporary video if we recorded one
+                if recording_started and os.path.exists(video_path):
                     os.remove(video_path)
-                    print(f"[Cleanup] Deleted unused video (non-learning state): {video_path}")
+                    print(f"[Cleanup] Deleted unused video (no bird): {video_path}")
 
-            pytime.sleep(2)
-            continue
-
-        # Wait for action
-        pytime.sleep(5)
-
-        # After frame
-        frame_after = camera.get_frame()
-        species_after, image2 = detector.detect_and_classify(frame_after)
-        species_after = normalise_species(species_after)
-        state_after = get_state(species_after)
-
-        # Stop recording only if we started it
-        if recording_started:
-            try:
-                camera.stop_recording()
-            except Exception as e:
-                print(f"[Camera] stop_recording error: {e}")
-
-
-        reward = update_q(state_before, state_after, action_idx)
-
-        # Bird event if a bird was present in either before or after
-        bird_event = (species_before != "None") or (species_after != "None")
-
-        if bird_event:
-            before_path, after_path = save_episode_images(dt, frame_before, frame_after)
-
-            append_history_row(
-                dt=dt,
-                species_before=species_before,
-                species_after=species_after,
-                state_before=state_before,
-                state_after=state_after,
-                action_idx=action_idx,
-                reward=reward,
-                q_table=Q,
-            )
-            print("Appended to history.csv")
-            if recording_started:
-                print(f"Episode video kept: {video_path}")
+            pytime.sleep(1)
+        
         else:
-            # No bird in either frame so delete the temporary video if we recorded one
-            if recording_started and os.path.exists(video_path):
-                os.remove(video_path)
-                print(f"[Cleanup] Deleted unused video (no bird): {video_path}")
-
-        pytime.sleep(1)
-    
-    else:
-        print("Outside active hours. Sleeping 60s.")
-        pytime.sleep(60)
+            print("Outside active hours. Sleeping 60s.")
+            pytime.sleep(60)
+    except Exception as e:
+        print("[ERROR] Exception in main loop:", e, flush=True)
+        traceback.print_exc()
+        pytime.sleep(5)
 
 
 
