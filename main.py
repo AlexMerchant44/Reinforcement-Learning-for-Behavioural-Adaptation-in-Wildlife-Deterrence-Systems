@@ -183,7 +183,7 @@ while is_now_between(start_time, end_time):
         if recording_started:
             print(f"Episode video kept: {video_path}")
     else:
-        # No bird in either frame → delete the temporary video if we recorded one
+        # No bird in either frame so delete the temporary video if we recorded one
         if recording_started and os.path.exists(video_path):
             os.remove(video_path)
             print(f"[Cleanup] Deleted unused video (no bird): {video_path}")
