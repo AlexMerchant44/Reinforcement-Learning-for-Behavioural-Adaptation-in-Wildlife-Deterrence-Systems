@@ -4,7 +4,6 @@ import camera
 import detector
 import os
 import csv
-import traceback
 import cv2
 import mode_store
 from rl_controller import STATE_TABLE, LEARNING_STATES, choose_action, update_q, Q, Q_PATH
@@ -17,7 +16,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(EPISODE_DIR, exist_ok=True)
 
 start_time = time(7, 0)  # 7:00
-end_time = time(23, 59)     # 18:00
+end_time = time(17, 0)     # 17:00
 
 STATE_LOOKUP = { (s, m): i for i, (s, m) in enumerate(STATE_TABLE) }
 
