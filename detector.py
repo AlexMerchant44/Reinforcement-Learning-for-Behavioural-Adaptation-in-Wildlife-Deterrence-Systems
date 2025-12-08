@@ -5,7 +5,7 @@ from PIL import Image
 import cv2
 from pathlib import Path
 import os
-import datetime
+from datetime import datetime, time
 
 CLASS_NAMES = ["Crow", "Magpie"]
 
