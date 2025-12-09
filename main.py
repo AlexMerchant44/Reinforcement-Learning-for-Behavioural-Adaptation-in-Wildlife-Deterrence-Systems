@@ -102,9 +102,11 @@ def save_episode_images(dt, frame_before, frame_after):
     ts = dt.strftime("%Y%m%d_%H%M%S")
     before_path = os.path.join(EPISODE_DIR, f"{ts}_before.jpg")
     after_path  = os.path.join(EPISODE_DIR, f"{ts}_after.jpg")
+    frame_before_rgb = cv2.cvtColor(frame_before, cv2.COLOR_BGR2RGB)
+    frame_after_rgb = cv2.cvtColor(frame_after, cv2.COLOR_BGR2RGB)
 
-    cv2.imwrite(before_path, frame_before)
-    cv2.imwrite(after_path, frame_after)
+    cv2.imwrite(before_path, frame_before_rgb)
+    cv2.imwrite(after_path, frame_after_rgb)
 
     return before_path, after_path
 
