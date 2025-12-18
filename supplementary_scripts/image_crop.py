@@ -3,9 +3,10 @@ from pathlib import Path
 import cv2
 
 MODEL_PATH = "yolo11n.pt"
-RAW_ROOT   = Path("Uncropped")
-CROP_ROOT  = Path("Cropped")
-CLASSES    = ["Crow", "Magpie"]  # folder names
+PARENT_ROOT = Path("C:/Users/AlexM/OneDrive/ML Project")
+RAW_ROOT   = PARENT_ROOT / "Uncropped"
+CROP_ROOT  = PARENT_ROOT / "Cropped"
+CLASSES    = ["Magpie", "Crow", "None"]  # folder names
 #MAX_IMAGES = 5  # <-- process only this many images per class
 
 # Script to create cropped image dataset using Yolo11n

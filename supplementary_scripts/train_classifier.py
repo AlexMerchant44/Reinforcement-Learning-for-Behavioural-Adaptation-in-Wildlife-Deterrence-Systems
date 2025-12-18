@@ -10,7 +10,7 @@ from pathlib import Path
 def main():
 
     # -------- CONFIG --------
-    DATA_DIR = Path("Cropped")  # <- change if needed
+    DATA_DIR = Path("C:/Users/AlexM/OneDrive/ML Project/Cropped")
     BATCH_SIZE = 32
     NUM_EPOCHS = 10
     VAL_SPLIT = 0.2       # 20% for validation
