@@ -228,32 +228,31 @@ def main():
 
                 # ---- Bird event logging ----
                 bird_event = (species_before != "None") or (species_after != "None")
-
                 if bird_event:
                     save_episode_images(episode_dir, dt, frame_before, frame_after)
 
-                    row = [
-                        dt.isoformat(),
-                        species_before,
-                        species_after,
-                        state_before,
-                        state_after,
-                        action_idx,
-                        float(duty),
-                        float(duration),
-                        float(conf_before),
-                        float(conf_after),
-                        float(reward),
-                        int(success),
-                    ]
-                    ptype = policy_type(cfg)
-                    if ptype == "discrete":
-                        row.append(q_flat_string(ctrl))
-                    elif ptype == "continuous":
-                        row.append(beta_params_string(ctrl))
+                row = [
+                    dt.isoformat(),
+                    species_before,
+                    species_after,
+                    state_before,
+                    state_after,
+                    action_idx,
+                    float(duty),
+                    float(duration),
+                    float(conf_before),
+                    float(conf_after),
+                    float(reward),
+                    int(success),
+                ]
+                ptype = policy_type(cfg)
+                if ptype == "discrete":
+                    row.append(q_flat_string(ctrl))
+                elif ptype == "continuous":
+                    row.append(beta_params_string(ctrl))
 
-                    append_history_row(history_path, row, header)
-                    print("Appended to history.csv")
+                append_history_row(history_path, row, header)
+                print("Appended to history.csv")
 
                 pytime.sleep(1)
 

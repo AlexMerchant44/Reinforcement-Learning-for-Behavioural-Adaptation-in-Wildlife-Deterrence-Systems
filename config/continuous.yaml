@@ -4,13 +4,13 @@ policy:
   baseline_lr: 0.05
 
 duty:
-  Dmin: 0.3
+  Dmin: 0
   Dmax: 1.0
   alpha_init: 2.0
   beta_init: 2.0
 
 duration:
-  Tmin: 0.2
+  Tmin: 0
   Tmax: 4.0
   alpha_init: 2.0
   beta_init: 2.0
