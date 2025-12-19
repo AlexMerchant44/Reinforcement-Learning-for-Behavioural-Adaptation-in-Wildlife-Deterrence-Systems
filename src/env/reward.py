@@ -49,7 +49,7 @@ def compute_reward(
     # false positive penalty
     r_false = 0.0
     if species_before == "None":
-        r_false = -cfg["reward"]["false_positive_weight"] * power_cost
+        r_false = -cfg["reward"]["false_positive_penalty"] * power_cost
 
     # total reward
     reward = r_progress + r_power + r_success + r_false
