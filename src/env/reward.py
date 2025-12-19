@@ -35,10 +35,6 @@ def compute_reward(
     reward : float
     """
 
-    # progress reward
-    delta_conf = conf_before - conf_after
-    r_progress = cfg["reward"]["progress_weight"] * delta_conf
-
     # power penalty
     power_cost = duty * duration
     r_power = -cfg["reward"]["energy_penalty"] * power_cost
@@ -52,5 +48,5 @@ def compute_reward(
         r_false = -cfg["reward"]["false_positive_penalty"] * power_cost
 
     # total reward
-    reward = r_progress + r_power + r_success + r_false
+    reward = r_power + r_success + r_false
     return reward

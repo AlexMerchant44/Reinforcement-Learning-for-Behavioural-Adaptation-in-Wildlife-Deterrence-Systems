@@ -1,7 +1,7 @@
 policy:
   type: continuous
-  lr: 0.02
-  baseline_lr: 0.05
+  lr: 0.05
+  baseline_lr: 0.02
 
 duty:
   Dmin: 0
@@ -16,7 +16,6 @@ duration:
   beta_init: 2.0
 
 reward:
-  progress_weight: 0.5
   clear_bonus: 3.0
   energy_penalty: 1.2
   false_positive_penalty: 9.0
