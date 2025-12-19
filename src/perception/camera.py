@@ -22,7 +22,7 @@ def get_frame():
     """
     Return a rotated BGR frame from the main stream.
     """
-    frame = picam2.capture_array()          # now always RGB888 colour
+    frame = picam2.capture_array()
     frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     rotated_bgr = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
     return rotated_bgr

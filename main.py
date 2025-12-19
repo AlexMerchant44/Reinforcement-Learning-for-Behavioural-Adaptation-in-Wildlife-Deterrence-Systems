@@ -1,69 +1,157 @@
 from datetime import datetime, time
 import time as pytime
-import camera
-import detector
 import os
 import csv
 import cv2
-import mode_store
-from rl_controller import STATE_TABLE, LEARNING_STATES, choose_action, update_q, Q, Q_PATH
+import yaml
+import argparse
+import numpy as np
+from pathlib import Path
 
-DATA_DIR = os.path.dirname(Q_PATH) or "rl_data"
-EPISODE_DIR = os.path.join(DATA_DIR, "Episodes")
-HISTORY_PATH = os.path.join(DATA_DIR, "history.csv")
+import src.perception.camera as camera
+import src.perception.detector as detector
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(EPISODE_DIR, exist_ok=True)
+from src.env.state_extractor import get_state, get_mode
+from src.env.reward import compute_reward
 
-start_time = time(7, 0)  # 7:00
-end_time = time(17, 0)     # 17:00
+from src.actuation.action import init_motor, run_motor, cleanup_motor
 
-STATE_LOOKUP = { (s, m): i for i, (s, m) in enumerate(STATE_TABLE) }
+
+start_time = time(7, 0)   # 7:00
+end_time   = time(22, 0)  # 17:00
+
 
 def is_now_between(start: time, end: time) -> bool:
-    ''' 
-    Defines the start and end time for the RL model, no need to be running
-    when there are no birds there.
-    '''
+    """
+    Defines the start and end time for the RL model.
+    """
     now = datetime.now().time()
-
     if start <= end:
         return start <= now <= end
     else:
         return now >= start or now <= end
-    
-def normalise_species(species):
+
+
+def load_cfg(path="config/discrete.yaml"):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+def policy_type(cfg):
+    return cfg.get("policy", {}).get("type", "discrete").lower()
+
+def get_run_paths(cfg):
+    run_dir = os.path.join("data", "runs", policy_type(cfg))
+    os.makedirs(run_dir, exist_ok=True)
+
+    episode_dir = os.path.join(run_dir, "Episodes")
+    os.makedirs(episode_dir, exist_ok=True)
+
+    history_path = os.path.join(run_dir, "history.csv")
+    return episode_dir, history_path
+
+
+def append_history_row(history_path, row, header):
+    write_header = not os.path.exists(history_path)
+    with open(history_path, mode="a", newline="") as f:
+        w = csv.writer(f)
+        if write_header:
+            w.writerow(header)
+        w.writerow(row)
+
+
+def save_episode_images(episode_dir, dt, frame_before, frame_after):
+    ts = dt.strftime("%Y%m%d_%H%M%S")
+    before_path = os.path.join(episode_dir, f"{ts}_before.jpg")
+    after_path  = os.path.join(episode_dir, f"{ts}_after.jpg")
+    frame_before = cv2.cvtColor(frame_before, cv2.COLOR_BGR2RGB)
+    frame_after = cv2.cvtColor(frame_after, cv2.COLOR_BGR2RGB)
+    cv2.imwrite(before_path, frame_before)
+    cv2.imwrite(after_path, frame_after)
+    return before_path, after_path
+
+
+def success_from_species(species_before, species_after):
     """
-    detector returns: 'Crow', 'Magpie', or None
-    STATE_TABLE expects: 'Crow', 'Magpie', 'None'
+    Success is defined as deterring the correct species,
+    based on the current deterrence mode.
+    species_* : "Crow", "Magpie", or "None"
     """
-    return species if species is not None else "None"
+
+    mode = get_mode()
+
+    # No bird to deter → not a success
+    if species_before == "None":
+        return False
+
+    # --- mode logic ---
+    if mode == "Scare_All":
+        return species_after == "None"
+
+    if mode == "Scare_Crows":
+        return species_before == "Crow" and species_after != "Crow"
+
+    if mode == "Scare_Magpies":
+        return species_before == "Magpie" and species_after != "Magpie"
+
+    # Scare_None
+    return False
+
+def load_controller(cfg):
+    ptype = policy_type(cfg)
+    if ptype == "discrete":
+        from src.controllers.discrete import controller as ctrl
+        return ctrl
+    elif ptype == "continuous":
+        from src.controllers.continuous import controller as ctrl
+        return ctrl
+    else:
+        raise ValueError(f"Unknown policy.type: {ptype}")
     
-def get_state(species):
-    '''
-    takes a species, gets the mode from mode.txt and looks up the state
-    '''
-    species = normalise_species(species)
-    mode = mode_store.get_mode()
-    return STATE_LOOKUP[(species, mode)]
-    
-def append_history_row(
-    
-    dt,
-    species_before,
-    species_after,
-    state_before,
-    state_after,
-    action_idx,
-    reward,
-    q_table,
-):
-    """
-    Append one line to history.csv with:
-      datetime, species_before, species_after,
-      state_before, state_after, action_idx, reward,
-      flattened q_table.
-    """
+def q_flat_string(ctrl):
+    # ctrl.Q is a (12,4) numpy array in your discrete controller
+    return " ".join(f"{v:.6f}" for v in ctrl.Q.flatten())
+
+def beta_params_string(ctrl):
+    # Preferred: read from in-memory arrays if you exposed them
+    # Fallback: load from the saved npz file if present
+    if hasattr(ctrl, "_alpha_d"):
+        alpha_d = ctrl._alpha_d
+        beta_d  = ctrl._beta_d
+        alpha_t = ctrl._alpha_t
+        beta_t  = ctrl._beta_t
+    else:
+        # match your continuous controller save path
+        here = Path(__file__).resolve().parent
+        npz_path = here / "data" / "runs" / "continuous" / "beta_params.npz"
+        data = np.load(npz_path)
+        alpha_d = data["alpha_d"]
+        beta_d  = data["beta_d"]
+        alpha_t = data["alpha_t"]
+        beta_t  = data["beta_t"]
+
+    joined = np.concatenate([alpha_d.flatten(), beta_d.flatten(), alpha_t.flatten(), beta_t.flatten()])
+    return " ".join(f"{v:.6f}" for v in joined)
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        default="config/discrete.yaml",
+        help="Path to config YAML (discrete or continuous)",
+    )
+    args = parser.parse_args()
+
+    cfg = load_cfg(args.config)
+    ctrl = load_controller(cfg)
+
+    episode_dir, history_path = get_run_paths(cfg)
+
+    # Motor init (optional config overrides)
+    motor_cfg = cfg.get("motor", {})
+    gpio_pin = int(motor_cfg.get("gpio_pin", 4))
+    pwm_freq = int(motor_cfg.get("pwm_freq", 8000))
+    init_motor(gpio_pin=gpio_pin, frequency=pwm_freq)
+
     header = [
         "datetime",
         "species_before",
@@ -71,99 +159,107 @@ def append_history_row(
         "state_before",
         "state_after",
         "action_idx",
+        "duty",
+        "duration",
+        "conf_before",
+        "conf_after",
         "reward",
-        "q_flattened",
+        "success",
     ]
-    
-    q_flat = " ".join(f"{v:.6f}" for v in q_table.flatten())
 
-    write_header = not os.path.exists(HISTORY_PATH)
+    ptype = policy_type(cfg)
+    if ptype == "discrete":
+        header.append("q_flattened")
+    elif ptype == "continuous":
+        header.append("beta_params")
 
-    with open(HISTORY_PATH, mode="a", newline="") as f:
-        writer = csv.writer(f)
-        if write_header:
-            writer.writerow(header)
+    try:
+        while True:
+            if is_now_between(start_time, end_time):
 
-        writer.writerow([
-            dt.isoformat(),
-            species_before,
-            species_after,
-            state_before,
-            state_after,
-            action_idx,
-            f"{reward:.6f}",
-            q_flat,
-        ])
+                dt = datetime.now()
 
-def save_episode_images(dt, frame_before, frame_after):
-    """
-    Save before/after frames into Episodes folder with timestamp-based names.
-    """
-    ts = dt.strftime("%Y%m%d_%H%M%S")
-    before_path = os.path.join(EPISODE_DIR, f"{ts}_before.jpg")
-    after_path  = os.path.join(EPISODE_DIR, f"{ts}_after.jpg")
+                # ---- BEFORE ----
+                frame_before = camera.get_frame()
+                species_before, conf_before, frame_before = detector.detect_and_classify(frame_before)
+                print(f"Species Detected: {species_before} (conf={conf_before:.2f})")
+                state_before = get_state(species_before)
 
-    cv2.imwrite(before_path, frame_before)
-    cv2.imwrite(after_path, frame_after)
+                # ---- CHOOSE ACTION (based on cfg / controller) ----
+                action_idx, duty, duration = ctrl.choose_action(state_before, cfg)
 
-    return before_path, after_path
+                run_motor(float(duty), float(duration))
 
-while True:
-    if is_now_between(start_time, end_time):
+                # Wait 5s for action and environmental response
+                pytime.sleep(5)
 
-        # Use one timestamp per episode
-        dt = datetime.now()
-        ts = dt.strftime("%Y%m%d_%H%M%S")
+                # ---- AFTER ----
+                frame_after = camera.get_frame()
+                species_after, conf_after, frame_after = detector.detect_and_classify(frame_after)
+                state_after = get_state(species_after)
 
-        # Before frame
-        frame_before = camera.get_frame()
-        species_before, image = detector.detect_and_classify(frame_before)
-        print(f"Species Detected: {species_before}")
-        species_before = normalise_species(species_before)
-        state_before = get_state(species_before)
-        action_idx, motor = choose_action(state_before)
+                # ---- SUCCESS ----
+                success = success_from_species(species_before, species_after)
 
-        # If no action is taken, tidy up and continue
-        if state_before not in LEARNING_STATES:
-            pytime.sleep(2)
-            continue
+                # ---- REWARD (shared) ----
+                reward = compute_reward(
+                    conf_before=conf_before,
+                    conf_after=conf_after,
+                    duty=float(duty),
+                    duration=float(duration),
+                    cfg=cfg,
+                    species_before=species_before,   # penalise false positives based on BEFORE state
+                    success=success,
+                )
 
-        # Wait for action
-        pytime.sleep(5)
+                # ---- UPDATE (based on cfg / controller) ----
+                ctrl.update(
+                    state_before,
+                    int(action_idx),
+                    float(duty),
+                    float(duration),
+                    cfg,
+                    reward,
+                )
 
-        # After frame
-        frame_after = camera.get_frame()
-        species_after, image2 = detector.detect_and_classify(frame_after)
-        species_after = normalise_species(species_after)
-        state_after = get_state(species_after)
-        reward = update_q(state_before, state_after, action_idx)
+                # ---- Bird event logging ----
+                bird_event = (species_before != "None") or (species_after != "None")
 
-        # Bird event if a bird was present in either before or after
-        bird_event = (species_before != "None") or (species_after != "None")
+                if bird_event:
+                    save_episode_images(episode_dir, dt, frame_before, frame_after)
 
-        if bird_event:
-            before_path, after_path = save_episode_images(dt, frame_before, frame_after)
+                    row = [
+                        dt.isoformat(),
+                        species_before,
+                        species_after,
+                        state_before,
+                        state_after,
+                        action_idx,
+                        float(duty),
+                        float(duration),
+                        float(conf_before),
+                        float(conf_after),
+                        float(reward),
+                        int(success),
+                    ]
+                    ptype = policy_type(cfg)
+                    if ptype == "discrete":
+                        row.append(q_flat_string(ctrl))
+                    elif ptype == "continuous":
+                        row.append(beta_params_string(ctrl))
 
-            append_history_row(
-                dt=dt,
-                species_before=species_before,
-                species_after=species_after,
-                state_before=state_before,
-                state_after=state_after,
-                action_idx=action_idx,
-                reward=reward,
-                q_table=Q,
-            )
-            print("Appended to history.csv")
+                    append_history_row(history_path, row, header)
+                    print("Appended to history.csv")
 
-        pytime.sleep(1)
-    
-    else:
-        print("Outside active hours. Sleeping 60s.")
-        pytime.sleep(60)
+                pytime.sleep(1)
+
+            else:
+                print("Outside active hours. Sleeping 60s.")
+                pytime.sleep(60)
+
+    finally:
+        cleanup_motor()
 
 
-
-
-
-
+if __name__ == "__main__":
+    main()
