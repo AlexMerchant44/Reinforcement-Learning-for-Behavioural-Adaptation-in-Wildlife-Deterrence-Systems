@@ -17,8 +17,8 @@ from src.env.reward import compute_reward
 from src.actuation.action import init_motor, run_motor, cleanup_motor
 
 
-start_time = time(0, 0)   # 7:00
-end_time   = time(7, 0)  # 17:00
+start_time = time(5, 0)   # 7:00
+end_time   = time(17, 0)  # 17:00
 
 
 def is_now_between(start: time, end: time) -> bool:
