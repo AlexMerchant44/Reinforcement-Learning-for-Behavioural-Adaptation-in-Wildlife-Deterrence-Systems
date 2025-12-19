@@ -15,7 +15,7 @@ print(f"Species detected before: {species_before} (conf={conf_before:.2f})")
 print(f"Species detected after: {species_after} (conf={conf_after:.2f})")
 
 cfg = load_cfg()
-run_dir, episode_dir, history_path = get_run_paths(cfg)
+episode_dir, history_path = get_run_paths(cfg)
 dt = datetime.now()
 save_episode_images(episode_dir, dt, frame_before, frame_after)
 print('Saved Episode Images')
