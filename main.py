@@ -17,8 +17,8 @@ from src.env.reward import compute_reward
 from src.actuation.action import init_motor, run_motor, cleanup_motor
 
 
-start_time = time(7, 0)   # 7:00
-end_time   = time(22, 0)  # 17:00
+start_time = time(0, 0)   # 7:00
+end_time   = time(7, 0)  # 17:00
 
 
 def is_now_between(start: time, end: time) -> bool:
@@ -144,6 +144,8 @@ def main():
     cfg = load_cfg(args.config)
     ctrl = load_controller(cfg)
 
+    print(f"{ctrl} controller selected. Setting Up Now")
+
     episode_dir, history_path = get_run_paths(cfg)
 
     # Motor init (optional config overrides)
@@ -172,6 +174,8 @@ def main():
         header.append("q_flattened")
     elif ptype == "continuous":
         header.append("beta_params")
+
+    print("Setup complete. Starting Loop")
 
     try:
         while True:
