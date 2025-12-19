@@ -16,6 +16,6 @@ duration:
   beta_init: 2.0
 
 reward:
-  clear_bonus: 3.0
-  energy_penalty: 1.2
+  clear_bonus: 12.0
+  energy_penalty: 3.4
   false_positive_penalty: 9.0
