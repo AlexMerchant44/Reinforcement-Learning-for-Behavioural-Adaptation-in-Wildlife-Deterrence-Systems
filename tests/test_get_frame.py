@@ -1,11 +1,12 @@
 import src.perception.camera as camera
-from datetime import datetime, time
+from datetime import datetime
+import time as pytime
 import src.perception.detector as detector
 
 from main import save_episode_images, load_cfg, get_run_paths  
 
 frame_before = camera.get_frame()
-time.sleep(5)
+pytime.sleep(5)
 frame_after = camera.get_frame()
 
 species_before, conf_before, frame_before = detector.detect_and_classify(frame_before)
