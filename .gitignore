@@ -1,3 +1,8 @@
 data/runs/continuous/baseline.npy
 data/runs/continuous/beta_params.npz
 data/runs/continuous/history.csv
+data/runs/continuous/ContinuousRun1912.csv
+
+__pycache__
+
+

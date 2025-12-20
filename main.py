@@ -207,7 +207,6 @@ def main():
 
                 # ---- REWARD (shared) ----
                 reward = compute_reward(
-                    conf_before=conf_before,
                     conf_after=conf_after,
                     duty=float(duty),
                     duration=float(duration),
