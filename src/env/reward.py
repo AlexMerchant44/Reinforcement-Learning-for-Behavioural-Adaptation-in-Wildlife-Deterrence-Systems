@@ -1,7 +1,6 @@
 # reward.py
 
 def compute_reward(
-    conf_before,
     conf_after,
     duty,
     duration,
@@ -10,6 +9,7 @@ def compute_reward(
     species_before=None,
     success=False,
 ):
+    
     """
     Compute reward for one step.
 
@@ -47,6 +47,11 @@ def compute_reward(
     if species_before == "None":
         r_false = -cfg["reward"]["false_positive_penalty"] * power_cost
 
+    # false negative penalty
+    r_presence = 0.0
+    if species_before != "None":
+        r_presence = -cfg["reward"]["false_negative_penalty"] * conf_after
+
     # total reward
-    reward = r_power + r_success + r_false
+    reward = r_power + r_success + r_false + r_presence
     return reward
