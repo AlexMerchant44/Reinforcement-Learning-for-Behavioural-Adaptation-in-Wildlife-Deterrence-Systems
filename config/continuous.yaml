@@ -19,3 +19,4 @@ reward:
   clear_bonus: 12.0
   energy_penalty: 3.4
   false_positive_penalty: 9.0
+  false_negative_penalty: 5.0
