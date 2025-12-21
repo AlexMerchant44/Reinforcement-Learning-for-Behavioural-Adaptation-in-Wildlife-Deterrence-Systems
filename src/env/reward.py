@@ -42,12 +42,12 @@ def compute_reward(
     # success bonus
     r_success = cfg["reward"]["clear_bonus"] if success else 0.0
 
-    # false positive penalty
+    # false positive penalty (worse if used more energy)
     r_false = 0.0
     if species_before == "None":
         r_false = -cfg["reward"]["false_positive_penalty"] * power_cost
 
-    # false negative penalty
+    # false negative penalty, conf_after = 0 if species_after is 'None'
     r_presence = 0.0
     if species_before != "None":
         r_presence = -cfg["reward"]["false_negative_penalty"] * conf_after

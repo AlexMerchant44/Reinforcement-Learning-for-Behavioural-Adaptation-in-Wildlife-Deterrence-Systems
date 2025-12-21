@@ -18,6 +18,7 @@ classifier.fc = torch.nn.Linear(classifier.fc.in_features, 3)
 classifier.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
 classifier.eval()
 
+# Perform same nonrandom transformations as done in training/validation
 to_tensor = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -38,9 +39,9 @@ def detect_and_classify(frame_bgr):
       frame_bgr (BGR image with boxes drawn)
     """
     results = yolo(frame_bgr, verbose=False)
-    r = results[0]
+    r = results[0] # take first result as yolo returns list object for batch processing
 
-    # --- No detections ---
+    # No detections, return species 'None', confidence of 0 and the frame
     if not r.boxes or len(r.boxes) == 0:
         return "None", 0.0, frame_bgr
 
@@ -50,17 +51,28 @@ def detect_and_classify(frame_bgr):
         x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
         yolo_conf = float(box.conf.item())  # YOLO confidence
 
+        # Same 15% padding as in training
+        w = x2 - x1
+        h = y2 - y1
+        pad = int(0.15 * max(w, h))
+
+        H, W, _ = frame_bgr.shape
+        x1p = max(0, x1 - pad)
+        y1p = max(0, y1 - pad)
+        x2p = min(W, x2 + pad)
+        y2p = min(H, y2 + pad)
+
         # crop to classify
-        crop = frame_bgr[y1:y2, x1:x2]
+        crop = frame_bgr[y1p:y2p, x1p:x2p]
         crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-        pil = Image.fromarray(crop_rgb)
+        pil = Image.fromarray(crop_rgb) # classifier expects PIL RGB image (ImageFolder did this in train_classifier.py)
         x = to_tensor(pil).unsqueeze(0)
 
         # classify crop
         with torch.no_grad():
             out = classifier(x)
-            cls_idx = torch.argmax(out, dim=1).item()
-            species = CLASS_NAMES[cls_idx]
+            cls_idx = torch.argmax(out, dim=1).item() # get predicted species id
+            species = CLASS_NAMES[cls_idx] # get species string from species id
 
         detected.append((species, yolo_conf))
 
@@ -78,6 +90,7 @@ def detect_and_classify(frame_bgr):
         )
         
     # Priority: Crow > Magpie
+    # unpack all instances of 'Crow' (s) with their corresponding confidence (c)
     crow_confs = [c for s, c in detected if s == "Crow"]
     if crow_confs:
         return "Crow", max(crow_confs), frame_bgr

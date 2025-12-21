@@ -2,11 +2,12 @@ import os
 import random
 import numpy as np
 
+# q table dimensions
 NUM_STATES = 12
 NUM_ACTIONS = 4
 
-DEFAULT_EPSILON = 0.3
-DEFAULT_ALPHA = 0.1
+DEFAULT_EPSILON = 0.3 # exploration rate
+DEFAULT_ALPHA = 0.1 # learning rate
 
 PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../../")
@@ -23,6 +24,10 @@ ACTION_PARAMS = [
 ]
 
 def _load_or_init_q():
+    '''
+    Helper function to load or initialise q_table
+    Returns q table
+    '''
     if os.path.exists(Q_PATH):
         return np.load(Q_PATH)
     Q = np.zeros((NUM_STATES, NUM_ACTIONS), dtype=float)
@@ -38,14 +43,15 @@ def choose_action(state, cfg):
     """
     global Q
 
+    # get epsilon from config
     policy_cfg = cfg.get("policy", {})
     epsilon = policy_cfg.get("er", DEFAULT_EPSILON)
 
     # ε-greedy selection
     if random.random() < epsilon:
-        action_idx = random.randrange(NUM_ACTIONS)      # explore
+        action_idx = random.randrange(NUM_ACTIONS) # explore
     else:
-        action_idx = int(np.argmax(Q[state]))           # exploit
+        action_idx = int(np.argmax(Q[state])) # exploit
 
     duty, duration = ACTION_PARAMS[action_idx]
     return action_idx, duty, duration
@@ -61,10 +67,24 @@ def update_q(
 ):
     """
     Update Q-table with the existing 1-step rule:
-      Q[s,a] <- Q[s,a] + alpha * (reward - Q[s,a])
+      Q[s,a] <- Qprev[s,a] + alpha * (reward - Qprev[s,a])
+
+    Do not use full Q-learning as actions and rewards are immediate only
+
+    Full Q-Learning update:
+      Q[s,a] <- Qprev[s,a] + alpha * (reward + γ*max(Q[s',a'] - Qprev[s,a])
+
+    Where s' is the next state and a' is the next action
+    γ is the discount factor
+
+    No planning of future horizon therefore future reward ~ 0
+    Therefore γ ~ 0, reducing the equation to the above
+
+    Contextual bandit, not full MDP
     """
     global Q
 
+    # get alpha from config
     policy_cfg = cfg.get("policy", {})
     alpha = policy_cfg.get("lr", DEFAULT_ALPHA)
 

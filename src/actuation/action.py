@@ -30,7 +30,7 @@ def run_motor(duty: float, duration: float):
     if _PWM is None:
         raise RuntimeError("Motor not initialized. Call init_motor().")
 
-    # --- safety clamps ---
+    # safety clamps
     duty = max(0.0, min(1.0, duty))
     duration = max(0.0, duration)
 

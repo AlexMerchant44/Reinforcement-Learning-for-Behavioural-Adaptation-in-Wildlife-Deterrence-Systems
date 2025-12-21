@@ -33,13 +33,28 @@ def is_now_between(start: time, end: time) -> bool:
 
 
 def load_cfg(path="config/discrete.yaml"):
+    '''
+    Helper function load the selected config yaml
+    
+    :param path: path to chosen config yaml
+    '''
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
 def policy_type(cfg):
+    '''
+    Helper function to get policy type from config yaml
+    
+    :param cfg: config yaml
+    '''
     return cfg.get("policy", {}).get("type", "discrete").lower()
 
 def get_run_paths(cfg):
+    '''
+    Helper function to retrieve paths to log episodes based on the cfg
+    
+    :param cfg: the config for which policy is selected
+    '''
     run_dir = os.path.join("data", "runs", policy_type(cfg))
     os.makedirs(run_dir, exist_ok=True)
 
@@ -51,6 +66,13 @@ def get_run_paths(cfg):
 
 
 def append_history_row(history_path, row, header):
+    '''
+    Helper function to save the episode data in the csv
+    
+    :param history_path: path to history.csv
+    :param row: Row data to be added
+    :param header: Header data, only added once
+    '''
     write_header = not os.path.exists(history_path)
     with open(history_path, mode="a", newline="") as f:
         w = csv.writer(f)
@@ -60,6 +82,14 @@ def append_history_row(history_path, row, header):
 
 
 def save_episode_images(episode_dir, dt, frame_before, frame_after):
+    '''
+    Helper function to save episode images to Episodes folder
+    
+    :param episode_dir: path to Episodes folder
+    :param dt: time now
+    :param frame_before: BGR frame
+    :param frame_after: GBR frame
+    '''
     ts = dt.strftime("%Y%m%d_%H%M%S")
     before_path = os.path.join(episode_dir, f"{ts}_before.jpg")
     after_path  = os.path.join(episode_dir, f"{ts}_after.jpg")
@@ -83,7 +113,6 @@ def success_from_species(species_before, species_after):
     if species_before == "None":
         return False
 
-    # --- mode logic ---
     if mode == "Scare_All":
         return species_after == "None"
 
@@ -97,6 +126,11 @@ def success_from_species(species_before, species_after):
     return False
 
 def load_controller(cfg):
+    '''
+    Helper function to load the controller script based on the config yaml
+    
+    :param cfg: config yaml
+    '''
     ptype = policy_type(cfg)
     if ptype == "discrete":
         from src.controllers.discrete import controller as ctrl
@@ -108,31 +142,31 @@ def load_controller(cfg):
         raise ValueError(f"Unknown policy.type: {ptype}")
     
 def q_flat_string(ctrl):
-    # ctrl.Q is a (12,4) numpy array in your discrete controller
+    '''
+    Helpfer function for saving q_table
+    
+    :param ctrl: controller script with q_table in
+    '''
+    # ctrl.Q is a (12,4) numpy array
     return " ".join(f"{v:.6f}" for v in ctrl.Q.flatten())
 
-def beta_params_string(ctrl):
-    # Preferred: read from in-memory arrays if you exposed them
-    # Fallback: load from the saved npz file if present
-    if hasattr(ctrl, "_alpha_d"):
-        alpha_d = ctrl._alpha_d
-        beta_d  = ctrl._beta_d
-        alpha_t = ctrl._alpha_t
-        beta_t  = ctrl._beta_t
-    else:
-        # match your continuous controller save path
-        here = Path(__file__).resolve().parent
-        npz_path = here / "data" / "runs" / "continuous" / "beta_params.npz"
-        data = np.load(npz_path)
-        alpha_d = data["alpha_d"]
-        beta_d  = data["beta_d"]
-        alpha_t = data["alpha_t"]
-        beta_t  = data["beta_t"]
+def beta_params_string():
+    '''
+    Helper function for saving the beta params
+    '''
+    here = Path(__file__).resolve().parent
+    npz_path = here / "data" / "runs" / "continuous" / "beta_params.npz"
+    data = np.load(npz_path)
+    alpha_d = data["alpha_d"]
+    beta_d  = data["beta_d"]
+    alpha_t = data["alpha_t"]
+    beta_t  = data["beta_t"]
 
     joined = np.concatenate([alpha_d.flatten(), beta_d.flatten(), alpha_t.flatten(), beta_t.flatten()])
     return " ".join(f"{v:.6f}" for v in joined)
 
 def main():
+    # Config parser to select controller
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config",
@@ -140,15 +174,12 @@ def main():
         help="Path to config YAML (discrete or continuous)",
     )
     args = parser.parse_args()
-
     cfg = load_cfg(args.config)
     ctrl = load_controller(cfg)
-
     print(f"{ctrl} controller selected. Setting Up Now")
-
     episode_dir, history_path = get_run_paths(cfg)
 
-    # Motor init (optional config overrides)
+    # Motor init
     motor_cfg = cfg.get("motor", {})
     gpio_pin = int(motor_cfg.get("gpio_pin", 4))
     pwm_freq = int(motor_cfg.get("pwm_freq", 8000))
@@ -169,6 +200,7 @@ def main():
         "success",
     ]
 
+    # Determine which header column needs to be added
     ptype = policy_type(cfg)
     if ptype == "discrete":
         header.append("q_flattened")
@@ -181,31 +213,31 @@ def main():
         while True:
             if is_now_between(start_time, end_time):
 
+                # Get current episode timestamp
                 dt = datetime.now()
 
-                # ---- BEFORE ----
+                # Get camera frame, run through detection pipeline, get current state
                 frame_before = camera.get_frame()
                 species_before, conf_before, frame_before = detector.detect_and_classify(frame_before)
                 print(f"Species Detected: {species_before} (conf={conf_before:.2f})")
                 state_before = get_state(species_before)
 
-                # ---- CHOOSE ACTION (based on cfg / controller) ----
+                # Choose action based on state and run it
                 action_idx, duty, duration = ctrl.choose_action(state_before, cfg)
-
                 run_motor(float(duty), float(duration))
 
                 # Wait 5s for action and environmental response
                 pytime.sleep(5)
 
-                # ---- AFTER ----
+                # Get post action frame, run through detection pipeline, get new state
                 frame_after = camera.get_frame()
                 species_after, conf_after, frame_after = detector.detect_and_classify(frame_after)
                 state_after = get_state(species_after)
 
-                # ---- SUCCESS ----
+                # Check if it was a success
                 success = success_from_species(species_before, species_after)
 
-                # ---- REWARD (shared) ----
+                # Compute reward
                 reward = compute_reward(
                     conf_after=conf_after,
                     duty=float(duty),
@@ -215,7 +247,7 @@ def main():
                     success=success,
                 )
 
-                # ---- UPDATE (based on cfg / controller) ----
+                # Update policy for selected controller
                 ctrl.update(
                     state_before,
                     int(action_idx),
@@ -225,11 +257,12 @@ def main():
                     reward,
                 )
 
-                # ---- Bird event logging ----
+                # Save episode images if it was a bird episode
                 bird_event = (species_before != "None") or (species_after != "None")
                 if bird_event:
                     save_episode_images(episode_dir, dt, frame_before, frame_after)
 
+                # Save episode log regardless of bird state
                 row = [
                     dt.isoformat(),
                     species_before,
@@ -248,18 +281,21 @@ def main():
                 if ptype == "discrete":
                     row.append(q_flat_string(ctrl))
                 elif ptype == "continuous":
-                    row.append(beta_params_string(ctrl))
+                    row.append(beta_params_string())
 
                 append_history_row(history_path, row, header)
                 print("Appended to history.csv")
 
+                # Throttle process to prevent thermal shutdown on pi
                 pytime.sleep(1)
 
             else:
+                # Check every minute if its within working hours
                 print("Outside active hours. Sleeping 60s.")
                 pytime.sleep(60)
 
     finally:
+        # Always clean up motor to prevent GPIO issues
         cleanup_motor()
 
 

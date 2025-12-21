@@ -11,7 +11,7 @@ os.makedirs(RUN_DIR, exist_ok=True)
 PARAMS_PATH = os.path.join(RUN_DIR, "beta_params.npz")   # stores 4 arrays
 BASELINE_PATH = os.path.join(RUN_DIR, "baseline.npy")    # stores baseline per state
 
-EPS = 1e-6
+EPS = 1e-6 # Avoids log(0) and division by 0
 MIN_AB = 0.1        # keep alpha/beta positive
 MAX_AB = 50.0       # prevent overconfidence exploding
 
@@ -67,7 +67,7 @@ def _save_params(alpha_d, beta_d, alpha_t, beta_t, baseline):
     np.save(BASELINE_PATH, baseline)
 
 
-# initialise module-level params
+# initialise module-level params, uses default unless cfg values exist
 _alpha_d, _beta_d, _alpha_t, _beta_t, _baseline = _load_or_init_params(cfg={})
 
 
@@ -103,22 +103,22 @@ def choose_action(state, cfg):
     """
     global _alpha_d, _beta_d, _alpha_t, _beta_t
 
-    # ---- bounds from config ----
+    # get action bounds from config
     Tmin = float(_cfg_get(cfg, ("duration", "Tmin"), 0.2))
     Tmax = float(_cfg_get(cfg, ("duration", "Tmax"), 2.0))
 
     Dmin = float(_cfg_get(cfg, ("duty", "Dmin"), 0.3))
     Dmax = float(_cfg_get(cfg, ("duty", "Dmax"), 1.0))
 
-    # ---- pull parameters for this state ----
+    # get parameters for this state
     ad = float(_alpha_d[state]); bd = float(_beta_d[state])
     at = float(_alpha_t[state]); bt = float(_beta_t[state])
 
-    # ---- sample latent variables u in (0,1) ----
+    # sample beta distributions to get action outputs
     u_d = float(np.random.beta(ad, bd))
     u_t = float(np.random.beta(at, bt))
 
-    # ---- map to physical ranges ----
+    # map to physical ranges (0-1 from beta)
     duty = Dmin + u_d * (Dmax - Dmin)
     duration = Tmin + u_t * (Tmax - Tmin)
 
@@ -135,7 +135,7 @@ def update_policy(
     reward,
 ):
     """
-    REINFORCE update on Beta parameters per state, using per-state baseline.
+    REINFORCE update on Beta parameters per state, using a baseline.
 
     Stores/updates:
       alpha_d[state], beta_d[state]  (duty Beta)
@@ -144,28 +144,26 @@ def update_policy(
     """
     global _alpha_d, _beta_d, _alpha_t, _beta_t, _baseline
 
-    # learning rates
+    # get learning rates from config
     lr = float(_cfg_get(cfg, ("policy", "lr"), 0.02))
     blr = float(_cfg_get(cfg, ("policy", "baseline_lr"), 0.05))
 
-    # duration bounds
+    # get duration bounds, get denominator ready for scaling back to [0,1]
     Tmin = float(_cfg_get(cfg, ("duration", "Tmin"), 0.2))
     Tmax = float(_cfg_get(cfg, ("duration", "Tmax"), 2.0))
     denomT = max(EPS, (Tmax - Tmin))
 
+    # get duty bounds, get denominator ready for scaling back to [0,1]
     Dmin = float(_cfg_get(cfg, ("duty", "Dmin"), 0.3))
     Dmax = float(_cfg_get(cfg, ("duty", "Dmax"), 1.0))
     denomD = max(EPS, (Dmax - Dmin))
 
-    # ---- invert duration mapping ----
+    # scale duration and duty back to [0,1]
     u_t = (float(duration) - Tmin) / denomT
     u_t = max(EPS, min(1.0 - EPS, u_t))
 
-    # ---- invert duty mapping----
-    # first clamp to physical bounds to be safe
-    duty_clamped = min(max(float(duty), Dmin), Dmax)
-
-    u_d = (duty_clamped - Dmin) / denomD
+    # scale duty back to [0,1]
+    u_d = (float(duty) - Dmin) / denomD
     u_d = max(EPS, min(1.0 - EPS, u_d))
 
     # advantage = reward - baseline(state)
