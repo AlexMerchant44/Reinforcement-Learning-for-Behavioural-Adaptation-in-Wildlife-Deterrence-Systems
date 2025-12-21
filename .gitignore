@@ -2,6 +2,7 @@ data/runs/continuous/baseline.npy
 data/runs/continuous/beta_params.npz
 data/runs/continuous/history.csv
 data/runs/continuous/ContinuousRun1912.csv
+data/runs/continuous/1912_Results
 utils/plot_beta.py
 
 __pycache__
