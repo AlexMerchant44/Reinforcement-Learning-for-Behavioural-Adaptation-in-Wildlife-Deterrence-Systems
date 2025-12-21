@@ -1,7 +1,14 @@
 # Reinforcement Learning for Behavioural Adaptation in Wildlife Deterrence Systems
 
 This project investigates the use of reinforcement learning (RL) to adaptively control a physical bird deterrent system.  
-The goal is to learn the minimal energy action required to deter target species (crows and magpies) while avoiding unnecessary disturbance or energy waste.
+The goal is to learn the minimal energy action required to deter target species (crows and magpies) while avoiding unnecessary disturbance and adapting with bird habituation.
+
+The system supports two interchangeable RL control modes, selectable via configuration files:
+
+- Discrete control (Q-learning)
+- Continuous control (policy gradient / REINFORCE)
+
+Ran by `python3 main --config config/continuous.yaml`
 
 ---
 
@@ -45,30 +52,61 @@ During operation:
    - If a bird is detected, the cropped region is passed into the ResNet18 classifier.
 
 3. **State construction**  
-   A state is defined by `(species_detected, mode)` where  
-   `mode` is read from `mode.txt` and mapped via `STATE_TABLE` in `rl_controller.py`.
+   A state is defined by `(species_detected, mode)` where `species_detected` ∈ {Crow, Magpie, None}
+   `mode` is read from `mode.txt` and mapped via `STATE_TABLE`.
 
 4. **Action selection (ε-greedy)**  
-   - If the state is a learning state (e.g. a species that should be deterred),  
-     the RL agent selects an action via ε-greedy exploration.  
-   - Otherwise, the system performs no action.
+   Action selection depends on the configured RL mode:
+
+   Discrete Mode:
+
+   - ε-greedy selection over a fixed action set 
+   - Actions correspond to predefined (PWM duty, duration) pairs
+
+   Continuous Mode:
+
+   - Continuous sampling of:
+      - motor duty cycle
+      - motor duration
+   - Actions are drawn from state-conditioned Beta distributions
+   - Parameters are updated via policy gradient (REINFORCE)
 
 5. **Environmental feedback**  
    - The system waits 5 seconds.
    - A second image is captured and classified to determine whether the bird remained or left.
 
-6. **Reward calculation**  
-   Defined in `rl_controller.py`:
-   - +1 if the target species was successfully deterred  
-   - –1 if the target species was not deterred  
-   - –1 if a non-target species was deterred  
-   - +1 if a non-target species remained  
-   - Energy penalty proportional to motor duration × PWM
+6. **Reward Function Design**  
+   Defined in `reward.py`:
+   - The total reward is computed as the sum of four components:
+      reward = r_power + r_success + r_false + r_presence
 
-7. **Q-learning update**  
-   The relevant entry in `q_table.npy` is updated via:
+   Energy Penalty:
+   - power_cost = duty x duration
+   - r_power = -energy penalty * power_cost
 
-Q[s][a] ← Q[s][a] + α (reward − Q[s][a])
+   Success Bonus:
+   - r_success = clear_bonus  (if success)
+
+   False Positive Penalty: (No bird present)
+   - r_false = -false_positive_penalty × power_cost
+
+   False Negative Penalty: (Bird Remains)
+   - r_presence = −false_negative_penalty × conf_after
+
+
+7. **Learning update** 
+   Discrete (Q-Learning):
+
+   - The relevant entry in `q_table.npy` is updated via:
+      
+      Q[s][a] ← Q[s][a] + α (reward − Q[s][a])
+
+   Continuous (Policy Gradient):
+
+   - REINFORCE update with per-state baseline
+   - Beta distribution parameters updated via:
+
+      θ ← θ + η (reward - baseline) Δθ log πθ(action)
 
 
 ---
@@ -94,12 +132,12 @@ All events are logged locally on the Pi:
 - State transitions
 - Action taken
 - Reward
-- Updated Q-table snapshot
+- Learning updates
 
-Logs are saved to `rl_data/` including:
+Logs are saved to `data/` including:
 - `history.csv`
 - Episode image pairs
-- `q_table.npy`
+- `q_table.npy` or `beta_params.npz`, `baseline.npy`
 
 ---
 
@@ -109,7 +147,7 @@ The system is currently running autonomously.
 Once enough event data has been collected, the following will be added:
 
 - Plots of average energy per event over time  
-- Q-table evolution visualisations  
+- Learning evolution visualisations  
 - Behavioural adaptation analysis  
 
 Results will be published in a dedicated `results/` folder.
