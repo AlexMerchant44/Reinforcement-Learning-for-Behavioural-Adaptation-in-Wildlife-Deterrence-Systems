@@ -55,7 +55,7 @@ During operation:
    A state is defined by `(species_detected, mode)` where `species_detected` ∈ {Crow, Magpie, None}
    `mode` is read from `mode.txt` and mapped via `STATE_TABLE`.
 
-4. **Action selection (ε-greedy)**  
+4. **Action selection**  
    Action selection depends on the configured RL mode:
 
    Discrete Mode:
